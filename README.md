@@ -24,6 +24,9 @@ The Android frontend is built separately in Flutter and talks to this API over H
 - **Deployed 2026-10-23** to `https://jainamagrifood.com/api/` (project in `/home/<cpanel-user>/beauty-parlour-api/`,
   document root `public_html/api/`, SQLite 3.7.17, 8 migrations applied, `install.key` disabled again).
   Procedure and API calls used: [docs/deployment.md](docs/deployment.md).
+- **Continuous deployment:** pushing to `main` on GitHub runs tests, builds the release and deploys
+  through the cPanel API (`.github/workflows/deploy-cpanel.yml`, `deploy/deploy-cpanel.sh`);
+  see docs/deployment.md section 7b for the secrets to configure.
 - No authentication, business endpoints or WhatsApp features exist yet.
   See [Deliberately not done yet](#deliberately-not-done-yet).
 

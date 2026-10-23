@@ -96,6 +96,34 @@ https://<main-domain>/api/health
 Expect `"status":"ok"`, `"database":{"ok":true,"driver":"SQLite3","version":"3.7.17"}`,
 `"environment":"production"`, `"timezone":"Asia/Kolkata"`. Any other path returns a JSON 404.
 
+## 7b. Automatic deployment from GitHub (no PC needed)
+
+The repository carries `.github/workflows/deploy-cpanel.yml`. On every push to `main` GitHub
+Actions runs the test suite, builds the release zip with production dependencies and Unix
+permissions, and runs `deploy/deploy-cpanel.sh`, which performs steps 2, 4, 6 and 7 above through
+the cPanel API: upload zip, extract over `/home/<user>/beauty-parlour-api/`, delete zip, rewrite the
+document-root files, call `/install/migrate`, check `/health`. The server `.env` and
+`writable/database/` are never part of the zip, so data survives every deploy.
+
+One-time GitHub setup:
+
+| Kind | Name | Value |
+|------|------|-------|
+| secret | `CPANEL_HOST` | `jainamagrifood.com` |
+| secret | `CPANEL_USER` | cPanel user name |
+| secret | `CPANEL_TOKEN` | a cPanel API token created for GitHub (cPanel » Manage API Tokens) |
+| secret | `CPANEL_HOME` | `/home/<cpanel-user>` |
+| secret | `APP_URL` | public base URL without trailing slash, e.g. `https://jainamagrifood.com/api` |
+| secret | `INSTALL_KEY` | the `install.key` value from the server `.env` |
+| variable | `DOCROOT` | document root to sync, e.g. `/home/<cpanel-user>/public_html/api`; leave empty to skip |
+| variable | `REWRITE_BASE` | `/api/` for a sub-folder deployment, `/` for a (sub)domain root |
+| variable | `PATHS_RELATIVE` | path from the document root to the app folder, default `../../beauty-parlour-api` |
+
+Changing the hostname later (for example moving to a subdomain root) is a change of `APP_URL`,
+`DOCROOT`, `REWRITE_BASE` and of `app.baseURL` in the server `.env`; no code change.
+
+The same script runs from a developer machine too (Git Bash) with the same variables exported.
+
 ## 8. Updating an existing deployment
 
 1. Rebuild the zip (step 1) and upload it to the home directory.

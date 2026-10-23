@@ -1,0 +1,73 @@
+# Deploys beauty-parlour-api to cPanel shared hosting on every push to main.
+#
+# Repository secrets (Settings > Secrets and variables > Actions > Secrets):
+#   CPANEL_HOST   cPanel host with a valid TLS certificate on port 2083, e.g. jainamagrifood.com
+#   CPANEL_USER   cPanel account user name
+#   CPANEL_TOKEN  cPanel API token (cPanel > Security > Manage API Tokens)
+#   CPANEL_HOME   /home/<cpanel-user>
+#   APP_URL       public base URL without trailing slash, e.g. https://jainamagrifood.com/api
+#   INSTALL_KEY   same value as install.key in the server .env
+# Repository variables (same page > Variables), all optional:
+#   DOCROOT        e.g. /home/<cpanel-user>/public_html/api   (empty = do not touch the document root)
+#   REWRITE_BASE   e.g. /api/   (default /)
+#   PATHS_RELATIVE e.g. ../../beauty-parlour-api   (default)
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-cpanel
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Tests (SQLite in-memory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, sqlite3, pdo_sqlite, zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: php vendor/bin/phpunit --no-coverage
+
+  deploy:
+    name: Build release and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, zip
+          coverage: none
+
+      - name: Build release zip (production dependencies, Unix permissions)
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/release/beauty-parlour-api"
+          mkdir -p "$STAGE"
+          cp -R app public writable docs deploy composer.json composer.lock env spark preload.php LICENSE README.md "$STAGE"/
+          find "$STAGE/writable" -type f ! -name index.html ! -name .htaccess -delete
+          (cd "$STAGE" && composer install --no-dev --optimize-autoloader --no-interaction --quiet)
+          php deploy/make-zip.php "$RUNNER_TEMP/release" beauty-parlour-api "$RUNNER_TEMP/release.zip"
+
+      - name: Deploy through the cPanel API
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_TOKEN: ${{ secrets.CPANEL_TOKEN }}
+          CPANEL_HOME: ${{ secrets.CPANEL_HOME }}
+          APP_URL: ${{ secrets.APP_URL }}
+          INSTALL_KEY: ${{ secrets.INSTALL_KEY }}
+          DOCROOT: ${{ vars.DOCROOT }}
+          REWRITE_BASE: ${{ vars.REWRITE_BASE }}
+          PATHS_RELATIVE: ${{ vars.PATHS_RELATIVE }}
+        run: bash deploy/deploy-cpanel.sh "$RUNNER_TEMP/release.zip"
