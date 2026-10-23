@@ -70,4 +70,9 @@ jobs:
           DOCROOT: ${{ vars.DOCROOT }}
           REWRITE_BASE: ${{ vars.REWRITE_BASE }}
           PATHS_RELATIVE: ${{ vars.PATHS_RELATIVE }}
-        run: bash deploy/deploy-cpanel.sh "$RUNNER_TEMP/release.zip"
+        run: |
+          if [ -z "${CPANEL_TOKEN:-}" ]; then
+            echo "::notice::cPanel secrets are not configured yet; build succeeded, deployment skipped."
+            exit 0
+          fi
+          bash deploy/deploy-cpanel.sh "$RUNNER_TEMP/release.zip"
