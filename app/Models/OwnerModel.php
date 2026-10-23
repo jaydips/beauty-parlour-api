@@ -17,7 +17,7 @@ class OwnerModel extends Model
     protected $table         = 'owner';
     protected $primaryKey    = 'id';
     protected $returnType    = 'array';
-    protected $allowedFields = ['name', 'phone', 'email'];
+    protected $allowedFields = ['name', 'phone', 'email', 'password_hash', 'last_login_at'];
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
 

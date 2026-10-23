@@ -2,31 +2,49 @@
 
 namespace Config;
 
+use App\Libraries\AppointmentService;
+use App\Libraries\OwnerAuth;
+use App\Libraries\WhatsApp;
 use CodeIgniter\Config\BaseService;
 
 /**
- * Services Configuration file.
- *
- * Services are simply other classes/libraries that the system uses
- * to do its job. This is used by CodeIgniter to allow the core of the
- * framework to be swapped out easily without affecting the usage within
- * the rest of your application.
- *
- * This file holds any application-specific services, or service overrides
- * that you might need. An example has been included with the general
- * method format you should use for your service methods. For more examples,
- * see the core Services file at system/Config/Services.php.
+ * Application services. Call them as service('ownerAuth'), service('whatsapp'), service('appointments').
  */
 class Services extends BaseService
 {
-    /*
-     * public static function example($getShared = true)
-     * {
-     *     if ($getShared) {
-     *         return static::getSharedInstance('example');
-     *     }
-     *
-     *     return new \CodeIgniter\Example();
-     * }
+    /**
+     * Request-scoped owner authentication state (bearer tokens).
      */
+    public static function ownerAuth(bool $getShared = true): OwnerAuth
+    {
+        if ($getShared) {
+            return static::getSharedInstance('ownerAuth');
+        }
+
+        return new OwnerAuth();
+    }
+
+    /**
+     * Click-to-chat link builder and message template renderer.
+     */
+    public static function whatsapp(bool $getShared = true): WhatsApp
+    {
+        if ($getShared) {
+            return static::getSharedInstance('whatsapp');
+        }
+
+        return new WhatsApp();
+    }
+
+    /**
+     * Appointment domain logic (items, totals, overlaps, reminders, status changes).
+     */
+    public static function appointments(bool $getShared = true): AppointmentService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('appointments');
+        }
+
+        return new AppointmentService();
+    }
 }

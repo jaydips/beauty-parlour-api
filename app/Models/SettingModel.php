@@ -31,7 +31,7 @@ class SettingModel extends Model
     /**
      * Returns one setting value, or $default when the key does not exist.
      */
-    public function get(string $key, ?string $default = null): ?string
+    public function value(string $key, ?string $default = null): ?string
     {
         $row = $this->find($key);
 
@@ -42,7 +42,7 @@ class SettingModel extends Model
      * Inserts or updates a setting without using upsert()
      * (not available on the hosting SQLite version).
      */
-    public function set(string $key, ?string $value): bool
+    public function setValue(string $key, ?string $value): bool
     {
         $now = Time::now()->toDateTimeString();
 
@@ -58,7 +58,7 @@ class SettingModel extends Model
      *
      * @return array<string, string|null>
      */
-    public function all(): array
+    public function allValues(): array
     {
         $out = [];
 

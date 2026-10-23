@@ -29,8 +29,11 @@ The Android frontend is built separately in Flutter and talks to this API over H
 - **Continuous deployment:** pushing to `main` on GitHub runs tests, builds the release and deploys
   through the cPanel API (`.github/workflows/deploy-cpanel.yml`, `deploy/deploy-cpanel.sh`);
   see docs/deployment.md section 7b for the secrets to configure.
-- No authentication, business endpoints or WhatsApp features exist yet.
-  See [Deliberately not done yet](#deliberately-not-done-yet).
+- **Phase 2 - owner authentication and Flutter API - complete (2026-10-23):** bearer-token login,
+  settings, services, customers, appointments (items, overlap check, automatic WhatsApp reminders),
+  payments, reminders with `wa.me` links, dashboard and reports. Endpoint reference:
+  [docs/api.md](docs/api.md). Feature tests cover the whole flow on SQLite.
+- See [Deliberately not done yet](#deliberately-not-done-yet) for what is still open.
 
 ## Scope of this release
 
@@ -378,11 +381,9 @@ hostname, HTTPS end to end for the API hostname.
 
 ## Deliberately not done yet
 
-- Phase 2: authentication (owner login, `owner.password_hash` via `ADD COLUMN`, `auth_tokens`,
-  `encryption.key`) and the Flutter-facing business endpoints (services, customers, appointments,
-  payments, reminders, reports).
-- WhatsApp click-to-chat link generation and the daily `spark` command that creates follow-up and
-  birthday reminders; the SQLite backup command.
+- Birthday reminders (a daily `spark` command run from cPanel cron) and the SQLite backup command.
+- Importing data from the previous Node.js prototype (`~/delicate-data/delicate.sqlite`).
+- A browser (web) dashboard; the Flutter app is the only client for now.
 - Customers delete policy (soft delete with restore vs hard delete) - open owner decision.
 - Choice of the hostname/path the API will be served from on the hosting account, and the upload
   itself (see `docs/deployment.md`).
