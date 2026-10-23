@@ -14,8 +14,16 @@ No new subdomain can be created on the account. Options:
 | B. Re-use the `delicate.` subdomain | its current Node.js (Passenger) app stops being served | `https://delicate.<main-domain>/` |
 | C. Ask RoyalClouds for one more subdomain slot | plan change on the provider side | `https://api.<main-domain>/` |
 
-Option A touches no existing site: WordPress' rewrite rules skip existing directories. The
-examples below use A with the folder name `api`; adjust paths for B or C.
+**Chosen on 2026-10-23: option B.** The API is served from `https://delicate.jainamagrifood.com/`
+(document root `public_html/delicate.jainamagrifood.com/`). The Node.js app's Passenger
+`.htaccess` was saved as `.htaccess.passenger-backup-2026-10-23` in that document root and as
+`deploy/delicate-htaccess.passenger-backup-2026-10-23.txt`; restoring that file (and stopping the
+API) brings the Node app back. The app was first deployed under option A (`public_html/api/`) for a
+few hours; that document root has been removed.
+
+The generic examples below still use option A's folder name `api`; for the live setup read
+`public_html/api/` as `public_html/delicate.jainamagrifood.com/`, `RewriteBase /api/` as no
+`RewriteBase`, and `https://<main-domain>/api/` as `https://delicate.jainamagrifood.com/`.
 
 ## 1. Build the release on the development machine
 
@@ -113,10 +121,10 @@ One-time GitHub setup:
 | secret | `CPANEL_USER` | cPanel user name |
 | secret | `CPANEL_TOKEN` | a cPanel API token created for GitHub (cPanel » Manage API Tokens) |
 | secret | `CPANEL_HOME` | `/home/<cpanel-user>` |
-| secret | `APP_URL` | public base URL without trailing slash, e.g. `https://jainamagrifood.com/api` |
+| secret | `APP_URL` | public base URL without trailing slash: `https://delicate.jainamagrifood.com` |
 | secret | `INSTALL_KEY` | the `install.key` value from the server `.env` |
-| variable | `DOCROOT` | document root to sync, e.g. `/home/<cpanel-user>/public_html/api`; leave empty to skip |
-| variable | `REWRITE_BASE` | `/api/` for a sub-folder deployment, `/` for a (sub)domain root |
+| variable | `DOCROOT` | `/home/<cpanel-user>/public_html/delicate.jainamagrifood.com`; leave empty to skip the document-root sync |
+| variable | `REWRITE_BASE` | `/` (subdomain root); `/api/` only for a sub-folder deployment |
 | variable | `PATHS_RELATIVE` | path from the document root to the app folder, default `../../beauty-parlour-api` |
 
 Changing the hostname later (for example moving to a subdomain root) is a change of `APP_URL`,

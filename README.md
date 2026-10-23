@@ -21,9 +21,11 @@ The Android frontend is built separately in Flutter and talks to this API over H
   8 migrations, `SettingsSeeder`, 8 models, `appTimezone = Asia/Kolkata`, JSON API root,
   `GET /api/health`, web migration runner (`/install/*`) for the SSH-less host, release build
   script and [docs/deployment.md](docs/deployment.md).
-- **Deployed 2026-10-23** to `https://jainamagrifood.com/api/` (project in `/home/<cpanel-user>/beauty-parlour-api/`,
-  document root `public_html/api/`, SQLite 3.7.17, 8 migrations applied, `install.key` disabled again).
-  Procedure and API calls used: [docs/deployment.md](docs/deployment.md).
+- **Deployed 2026-10-23** to **`https://delicate.jainamagrifood.com/`** (project in `/home/<cpanel-user>/beauty-parlour-api/`,
+  document root `public_html/delicate.jainamagrifood.com/`, SQLite 3.7.17, 8 migrations applied).
+  The subdomain previously served a Node.js (Passenger) app; its `.htaccess` is kept as
+  `.htaccess.passenger-backup-2026-10-23` next to the new one and in `deploy/`. The earlier
+  `public_html/api/` document root was removed. Procedure: [docs/deployment.md](docs/deployment.md).
 - **Continuous deployment:** pushing to `main` on GitHub runs tests, builds the release and deploys
   through the cPanel API (`.github/workflows/deploy-cpanel.yml`, `deploy/deploy-cpanel.sh`);
   see docs/deployment.md section 7b for the secrets to configure.
@@ -138,7 +140,7 @@ shows the batch table, `php spark migrate:rollback` drops the last batch (all ta
 | Route | Purpose |
 |-------|---------|
 | `GET /` | JSON API root |
-| `GET /health` | Liveness check: framework, PHP, environment, timezone, database driver/version. In production the app lives under `/api/`, so the URL is `https://<domain>/api/health` |
+| `GET /health` | Liveness check: framework, PHP, environment, timezone, database driver/version. Production: `https://delicate.jainamagrifood.com/health` |
 | `GET /install/status?key=…` | Applied and pending migrations (404 without the exact `install.key` from `.env`) |
 | `GET /install/migrate?key=…` | Runs pending migrations and `SettingsSeeder` (same protection) |
 | anything else | JSON 404 |
