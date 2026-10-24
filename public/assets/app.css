@@ -156,6 +156,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .daypick input { flex: 1; }
 .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .menu .card-link { display: flex; align-items: center; justify-content: space-between; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.chip { padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 0.9rem; color: var(--text); }
+.chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 @media (min-width: 600px) {
   .stats { grid-template-columns: repeat(4, 1fr); }

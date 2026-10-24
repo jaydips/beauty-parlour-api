@@ -132,6 +132,14 @@ Changing the hostname later (for example moving to a subdomain root) is a change
 
 The same script runs from a developer machine too (Git Bash) with the same variables exported.
 
+## 7c. Web UI assets
+
+The document-root sync (`deploy/deploy-cpanel.sh` step 4, and step 4 of the manual procedure) also
+copies `public/manifest.webmanifest` and every file in `public/assets/` (`app.css`, `app.js`,
+`icon-192.png`, `icon-512.png`) into `<docroot>/assets/`. `public/.htaccess` serves
+`.webmanifest` as `application/manifest+json`. After a deploy, open `https://<host>/login` and
+check that the page is styled; an unstyled page means the assets were not copied.
+
 ## 8. Updating an existing deployment
 
 1. Rebuild the zip (step 1) and upload it to the home directory.

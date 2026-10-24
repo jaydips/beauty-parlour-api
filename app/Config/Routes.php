@@ -46,11 +46,29 @@ $routes->group('app', ['filter' => ['webauth', 'csrf']], static function (RouteC
     $routes->post('customers/(:num)', 'Web\Customers::update/$1');
     $routes->post('customers/(:num)/delete', 'Web\Customers::delete/$1');
 
+    $routes->get('payments', 'Web\Payments::index');
     $routes->post('payments', 'Web\Payments::store');
     $routes->post('payments/(:num)/delete', 'Web\Payments::delete/$1');
 
+    $routes->get('reminders', 'Web\Reminders::index');
+    $routes->get('reminders/new', 'Web\Reminders::create');
+    $routes->post('reminders', 'Web\Reminders::store');
     $routes->post('reminders/(:num)/sent', 'Web\Reminders::sent/$1');
     $routes->post('reminders/(:num)/skip', 'Web\Reminders::skip/$1');
+
+    $routes->get('services', 'Web\Services::index');
+    $routes->get('services/new', 'Web\Services::create');
+    $routes->post('services', 'Web\Services::store');
+    $routes->get('services/(:num)/edit', 'Web\Services::edit/$1');
+    $routes->post('services/(:num)', 'Web\Services::update/$1');
+    $routes->post('services/(:num)/delete', 'Web\Services::delete/$1');
+
+    $routes->get('settings', 'Web\Settings::show');
+    $routes->post('settings', 'Web\Settings::update');
+
+    $routes->get('more', 'Web\More::index');
+    $routes->get('password', 'Web\More::password');
+    $routes->post('password', 'Web\More::updatePassword');
 });
 
 // ---------------------------------------------------------------------------

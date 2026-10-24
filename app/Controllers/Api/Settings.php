@@ -37,7 +37,7 @@ class Settings extends ApiController
             }
 
             $value = $value === null ? '' : trim((string) $value);
-            $error = $this->validateValue($key, $value);
+            $error = SettingModel::validateValue((string) $key, $value);
 
             if ($error !== null) {
                 $errors[$key] = $error;
@@ -59,18 +59,6 @@ class Settings extends ApiController
         }
 
         return $this->respond($this->payload());
-    }
-
-    private function validateValue(string $key, string $value): ?string
-    {
-        return match ($key) {
-            'country_code'                                       => preg_match('/^\d{1,3}$/', $value) ? null : 'Country code must be 1 to 3 digits.',
-            'parlour_phone'                                      => ($value === '' || preg_match('/^\d{10}$/', $value)) ? null : 'Phone must be 10 digits.',
-            'slot_minutes', 'reminder_lead_hours', 'followup_days' => ctype_digit($value) ? null : 'Must be a whole number (0 or more).',
-            'opening_hours'                                      => json_decode($value, true) !== null || $value === 'null' ? null : 'Must be valid JSON.',
-            'timezone'                                           => in_array($value, timezone_identifiers_list(), true) ? null : 'Unknown timezone.',
-            default                                              => mb_strlen($value) <= 2000 ? null : 'Too long (max 2000 characters).',
-        };
     }
 
     private function payload(): array

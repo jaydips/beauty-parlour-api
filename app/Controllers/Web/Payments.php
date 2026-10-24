@@ -18,6 +18,46 @@ use CodeIgniter\I18n\Time;
  */
 class Payments extends WebController
 {
+    public function index(): string
+    {
+        $today = Time::now();
+        $from  = $this->validDate((string) ($this->request->getGet('from') ?? ''), $today->setDay(1)->toDateString());
+        $to    = $this->validDate((string) ($this->request->getGet('to') ?? ''), $today->toDateString());
+
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $model = new PaymentModel();
+        $rows  = $model->where('paid_at >=', $from . ' 00:00:00')->where('paid_at <=', $to . ' 23:59:59')
+            ->orderBy('paid_at', 'DESC')->findAll(500);
+
+        $totals = service('dashboard')->revenue(new PaymentModel(), $from . ' 00:00:00', $to . ' 23:59:59');
+
+        $customers = [];
+        if ($rows !== []) {
+            foreach ((new CustomerModel())->withDeleted()->whereIn('id', array_values(array_unique(array_column($rows, 'customer_id'))))->findAll() as $c) {
+                $customers[(int) $c['id']] = $c;
+            }
+        }
+        foreach ($rows as &$row) {
+            $row['customer'] = $customers[(int) $row['customer_id']] ?? null;
+        }
+
+        return $this->render('web/payments/index', [
+            'title'    => 'Payments',
+            'from'     => $from,
+            'to'       => $to,
+            'payments' => $rows,
+            'totals'   => $totals,
+        ], 'more');
+    }
+
+    private function validDate(string $date, string $default): string
+    {
+        return (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && strtotime($date) !== false) ? $date : $default;
+    }
+
     public function store(): RedirectResponse
     {
         $data          = $this->input();

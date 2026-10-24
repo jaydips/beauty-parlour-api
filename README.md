@@ -33,6 +33,11 @@ The Android frontend is built separately in Flutter and talks to this API over H
   settings, services, customers, appointments (items, overlap check, automatic WhatsApp reminders),
   payments, reminders with `wa.me` links, dashboard and reports. Endpoint reference:
   [docs/api.md](docs/api.md). Feature tests cover the whole flow on SQLite.
+- **Phase 3 - mobile web UI - complete (2026-10-24):** server-rendered pages under `/app` behind
+  `/login` (same owner phone + password, 30-day browser session, CSRF): dashboard, appointments
+  (booking with customer autocomplete/quick-add, conflicts, status, payments), customers, services,
+  payments, WhatsApp reminders with `wa.me` buttons, settings, password change, "Add to Home Screen"
+  manifest. Gujarati labels. Live at `https://delicate.jainamagrifood.com/login`.
 - See [Deliberately not done yet](#deliberately-not-done-yet) for what is still open.
 
 ## Scope of this release
@@ -146,7 +151,25 @@ shows the batch table, `php spark migrate:rollback` drops the last batch (all ta
 | `GET /health` | Liveness check: framework, PHP, environment, timezone, database driver/version. Production: `https://delicate.jainamagrifood.com/health` |
 | `GET /install/status?key=…` | Applied and pending migrations (404 without the exact `install.key` from `.env`) |
 | `GET /install/migrate?key=…` | Runs pending migrations and `SettingsSeeder` (same protection) |
+| `POST /install/owner?key=…` | One-time creation of the owner login |
+| `POST /auth/login` and the JSON API | For the Flutter app, see [docs/api.md](docs/api.md) |
+| `GET /login`, `/app/...` | Mobile web UI (browser session). Pages: `/app` dashboard, `/app/appointments`, `/app/customers`, `/app/services`, `/app/payments`, `/app/reminders`, `/app/settings`, `/app/password`, `/app/more` |
 | anything else | JSON 404 |
+
+### Web UI notes
+
+- Controllers in `app/Controllers/Web/`, views in `app/Views/web/` with the layout
+  `app/Views/layouts/app.php`, one stylesheet `public/assets/app.css` and a small
+  `public/assets/app.js` (customer autocomplete, live total, confirmations). No build step.
+- Browser auth: `App\Filters\WebAuthFilter` (`webauth`) redirects to `/login`; `csrf` is applied to
+  the same routes. Session lifetime is 30 days (`app/Config/Session.php`); cookies are `Secure`
+  only in production (`app/Config/Cookie.php`).
+- `App\Libraries\DashboardService` builds the home-screen data for both `GET /dashboard` (JSON)
+  and `/app`.
+- Display helpers (`rupees()`, `fmt_date()`, `status_label()`, ...) live in
+  `app/Helpers/format_helper.php` and are autoloaded.
+- Local development: create a dev owner with `POST /install/owner?key=<install.key from .env>`,
+  then open `http://localhost:8080/login`.
 
 ### Useful commands
 
@@ -383,7 +406,8 @@ hostname, HTTPS end to end for the API hostname.
 
 - Birthday reminders (a daily `spark` command run from cPanel cron) and the SQLite backup command.
 - Importing data from the previous Node.js prototype (`~/delicate-data/delicate.sqlite`).
-- A browser (web) dashboard; the Flutter app is the only client for now.
+- Phase 4 (decision pending): WhatsApp sending through a separate Baileys bridge (`whatsapp_outbox`
+  table + bridge endpoints); click-to-chat stays as the fallback.
 - Customers delete policy (soft delete with restore vs hard delete) - open owner decision.
 - Choice of the hostname/path the API will be served from on the hosting account, and the upload
   itself (see `docs/deployment.md`).
