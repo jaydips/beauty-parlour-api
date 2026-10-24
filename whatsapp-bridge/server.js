@@ -76,9 +76,9 @@ async function start() {
       logger,
       browser: Browsers.ubuntu('Chrome'),
       markOnlineOnConnect: false,
+      // This number only sends: no full history download, no message handlers. (Do not disable the
+      // initial sync entirely: Baileys 7 needs it for the LID mappings used when sending.)
       syncFullHistory: false,
-      // This number only sends: no history sync, no message handlers.
-      shouldSyncHistoryMessage: () => false,
       ...(version ? { version } : {}),
     });
     sock = s;

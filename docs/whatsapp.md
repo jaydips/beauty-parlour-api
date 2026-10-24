@@ -99,6 +99,13 @@ Checks: `GET https://<host>/whatsapp/status` (bearer token) or the web page show
 `tmp/cron-whatsapp.log` shows one line per minute like
 `[2026-10-24 10:31:00] reminders queued 2, sent 2, failed 0, deferred 0`.
 
+Two more spark commands exist for checks from a one-off cron job (or locally):
+
+```
+php spark whatsapp:status                         # bridge link state, auto-send switch, outbox counts, what is due now
+php spark whatsapp:test --to 98XXXXXXXX           # sends one real message immediately through the bridge
+```
+
 ## 3. Operations
 
 - **Re-link**: if the phone unlinks the device (or WhatsApp logs it out) the page shows *Link બાકી*

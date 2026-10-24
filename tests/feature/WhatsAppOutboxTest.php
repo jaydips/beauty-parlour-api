@@ -236,6 +236,27 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertSame('ABCD1234', json_decode($pair->getJSON(), true, 512, JSON_THROW_ON_ERROR)['pairing_code']);
     }
 
+    public function testStatusAndTestCommandsTalkToTheBridge(): void
+    {
+        $status = $this->runCommand('whatsapp:status');
+        $this->assertStringContainsString('registered=yes me=919033319266', $status);
+        $this->assertStringContainsString('auto_send=on', $status);
+        $this->assertStringContainsString('outbox: queued 0 (due now 0)', $status);
+
+        $bad = $this->runCommand('whatsapp:test --to 123');
+        $this->assertStringContainsString('10-digit', $bad);
+        $this->assertCount(0, $this->bridge->sent);
+
+        $ok = $this->runCommand('whatsapp:test --to 9876543210');
+        $this->assertStringContainsString('sent to 9876543210: id=ABC123', $ok);
+        $this->assertCount(1, $this->bridge->sent);
+        $this->assertStringContainsString('My Beauty Parlour', $this->bridge->sent[0]['text']);
+
+        $this->bridge->sendReply = ['ok' => false, 'error' => 'not_connected'];
+        $fail = $this->runCommand('whatsapp:test --to 9876543210');
+        $this->assertStringContainsString('NOT sent to 9876543210: not_connected', $fail);
+    }
+
     /** CLI::write() goes to STDOUT, so collect it through the test stream filter. */
     private function runCommand(string $command): string
     {
