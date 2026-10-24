@@ -66,15 +66,33 @@ RES="$(curl -sS --fail-with-body --max-time 120 -H "@$(lp "$HDR")" -X POST \
 
 if [ -n "${DOCROOT:-}" ]; then
   echo "== 4/6 sync document root $DOCROOT (RewriteBase $REWRITE_BASE, Paths $PATHS_RELATIVE)"
+  # The docroot receives everything a browser may fetch: the front controller, .htaccess,
+  # robots.txt, favicon.ico and the web UI assets (public/assets/*). They travel as one flat
+  # zip that is extracted in place, so sub-folders such as assets/ are created as needed.
   STAGE="$(mktemp -d)"; trap 'rm -f "$HDR"; rm -rf "$STAGE"' EXIT
-  sed "s|^\t# RewriteBase /\$|\tRewriteBase $REWRITE_BASE|" "$HERE/../public/.htaccess" > "$STAGE/.htaccess"
-  sed "s|require FCPATH \. '\.\./\.\./beauty-parlour-api/app/Config/Paths\.php';|require FCPATH . '$PATHS_RELATIVE/app/Config/Paths.php';|" "$HERE/docroot-index.php" > "$STAGE/index.php"
-  cp "$HERE/../public/robots.txt" "$HERE/../public/favicon.ico" "$STAGE/"
-  RES="$(uapi -F "dir=$DOCROOT" -F 'overwrite=1' -F 'permissions=0644' \
-    -F "file-0=@$(lp "$STAGE/index.php");filename=index.php" -F "file-1=@$(lp "$STAGE/.htaccess");filename=.htaccess" \
-    -F "file-2=@$(lp "$STAGE/robots.txt");filename=robots.txt" -F "file-3=@$(lp "$STAGE/favicon.ico");filename=favicon.ico" \
-    "$API/execute/Fileman/upload_files")"
-  [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] || { echo "docroot upload failed: $RES" >&2; exit 1; }
+  mkdir -p "$STAGE/docroot"
+  sed "s|^\t# RewriteBase /\$|\tRewriteBase $REWRITE_BASE|" "$HERE/../public/.htaccess" > "$STAGE/docroot/.htaccess"
+  sed "s|require FCPATH \. '\.\./\.\./beauty-parlour-api/app/Config/Paths\.php';|require FCPATH . '$PATHS_RELATIVE/app/Config/Paths.php';|" "$HERE/docroot-index.php" > "$STAGE/docroot/index.php"
+  cp "$HERE/../public/robots.txt" "$HERE/../public/favicon.ico" "$STAGE/docroot/"
+  if [ -d "$HERE/../public/assets" ]; then
+    mkdir -p "$STAGE/docroot/assets"
+    cp -R "$HERE/../public/assets/." "$STAGE/docroot/assets/"
+  fi
+  DOCZIP_NAME="docroot-sync-$$.zip"
+  php "$HERE/make-zip.php" "$STAGE" docroot "$STAGE/$DOCZIP_NAME" --flat
+  RES="$(uapi -F "dir=$DOCROOT" -F 'overwrite=1' -F "file-0=@$(lp "$STAGE/$DOCZIP_NAME");filename=$DOCZIP_NAME" "$API/execute/Fileman/upload_files")"
+  [ "$(json_get "$RES" '$j["status"] ?? $j["result"]["status"] ?? 0')" = "1" ] || { echo "docroot upload failed: $RES" >&2; exit 1; }
+  RES="$(curl -sS --fail-with-body --max-time 300 -H "@$(lp "$HDR")" -X POST \
+    --data-urlencode "cpanel_jsonapi_user=$CPANEL_USER" --data-urlencode 'cpanel_jsonapi_apiversion=2' \
+    --data-urlencode 'cpanel_jsonapi_module=Fileman' --data-urlencode 'cpanel_jsonapi_func=fileop' \
+    --data-urlencode 'op=extract' --data-urlencode "sourcefiles=$DOCROOT/$DOCZIP_NAME" \
+    --data-urlencode "destfiles=$DOCROOT" --data-urlencode 'doubledecode=0' "$API/json-api/cpanel")"
+  [ "$(json_get "$RES" '$j["cpanelresult"]["data"][0]["result"] ?? 0')" = "1" ] || { echo "docroot extract failed: ${RES:0:600}" >&2; exit 1; }
+  RES="$(curl -sS --fail-with-body --max-time 120 -H "@$(lp "$HDR")" -X POST \
+    --data-urlencode "cpanel_jsonapi_user=$CPANEL_USER" --data-urlencode 'cpanel_jsonapi_apiversion=2' \
+    --data-urlencode 'cpanel_jsonapi_module=Fileman' --data-urlencode 'cpanel_jsonapi_func=fileop' \
+    --data-urlencode 'op=unlink' --data-urlencode "sourcefiles=$DOCROOT/$DOCZIP_NAME" --data-urlencode 'doubledecode=0' "$API/json-api/cpanel")"
+  [ "$(json_get "$RES" '$j["cpanelresult"]["data"][0]["result"] ?? 0')" = "1" ] || echo "warning: could not delete $DOCZIP_NAME from the docroot: ${RES:0:300}" >&2
 else
   echo "== 4/6 document root sync skipped (DOCROOT not set)"
 fi
