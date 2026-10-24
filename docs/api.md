@@ -136,3 +136,27 @@ The server never sends messages.
 
 - `GET /health` (no auth): framework, PHP, environment, timezone, database driver and version.
 - `GET /install/status?key=` and `GET /install/migrate?key=`: migration runner used by deployments.
+
+## Automatic WhatsApp (Phase 4, bridge)
+
+Everything here needs the bearer token. The switch is a setting: `PUT /settings {"wa_auto_send": "1"}`
+(also `wa_send_from`, `wa_send_to` as `HH:MM`, `tpl_whatsapp_booking`). Full description: `docs/whatsapp.md`.
+
+| Method | Path | Body / query | Notes |
+|--------|------|--------------|-------|
+| GET | `/whatsapp/status` | | `bridge` {configured, ok, connection, registered, me, pairing_code, qr_png, last_error, sent_total}, `auto_send`, `send_window`, `counts` per message status |
+| POST | `/whatsapp/pair` | `{phone}` 10 digits | returns `pairing_code` to type in WhatsApp » Linked devices » Link with phone number; 409 when already linked, 502 when the bridge is down |
+| POST | `/whatsapp/logout` | | unlink the WhatsApp account |
+| POST | `/whatsapp/test` | `{phone}` | sends one test message now (502 with `error` when it fails) |
+| GET | `/messages` | `status=queued,sent,failed,cancelled` `type=` `campaign_id=` `customer_id=` `page=` `per_page=` | outbox rows with `customer`; plus `counts` |
+| POST | `/messages` | `{customer_id, body, scheduled_at?}` | queues a custom message (201); sent by the cron when auto-send is on |
+| GET | `/messages/{id}` | | |
+| POST | `/messages/{id}/retry` | | failed/cancelled → queued now (409 otherwise) |
+| POST | `/messages/{id}/cancel` | | queued → cancelled (409 otherwise) |
+| GET | `/campaigns` | `page=` | offer broadcasts |
+| GET | `/campaigns/preview` | `audience=all|recent|inactive` `days=90` | recipient count and a 5-name sample |
+| POST | `/campaigns` | `{title, body, audience?, days?}` | creates the campaign and one queued message per opted-in recipient (201); body placeholders `{customer_name}` `{parlour_name}` |
+| GET | `/campaigns/{id}` | | campaign, `counts`, per-recipient `messages` |
+| POST | `/campaigns/{id}/cancel` | | cancels the queued messages |
+
+Message row: `id, customer_id, appointment_id, reminder_id, campaign_id, phone, type (booking|appointment|follow_up|birthday|offer|custom), body, status (queued|sent|failed|cancelled), attempts, last_error, scheduled_at, sent_at, wa_id, customer {id, name, phone}`.

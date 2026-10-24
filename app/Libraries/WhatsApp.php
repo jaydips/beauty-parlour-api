@@ -56,6 +56,7 @@ class WhatsApp
             'appointment' => 'tpl_whatsapp_reminder',
             'follow_up'   => 'tpl_whatsapp_followup',
             'birthday'    => 'tpl_whatsapp_birthday',
+            'booking'     => 'tpl_whatsapp_booking',
             default       => null,
         };
 
@@ -90,6 +91,23 @@ class WhatsApp
         $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
 
         return $this->render($this->template('appointment'), $this->baseVars($customer) + [
+            'date'     => $starts->format('d M Y'),
+            'time'     => $starts->format('h:i A'),
+            'services' => $services !== '' ? $services : 'your appointment',
+        ]);
+    }
+
+    /**
+     * "Your appointment is booked" confirmation sent right after a booking (automatic sending only).
+     *
+     * @param list<array<string, mixed>> $items
+     */
+    public function bookingMessage(array $customer, array $appointment, array $items): string
+    {
+        $starts   = Time::parse($appointment['starts_at']);
+        $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
+
+        return $this->render($this->template('booking'), $this->baseVars($customer) + [
             'date'     => $starts->format('d M Y'),
             'time'     => $starts->format('h:i A'),
             'services' => $services !== '' ? $services : 'your appointment',

@@ -30,6 +30,11 @@ class SettingsSeeder extends Seeder
         'tpl_whatsapp_reminder' => 'Hello {customer_name}, this is a reminder of your appointment at {parlour_name} on {date} at {time} for {services}. See you soon!',
         'tpl_whatsapp_followup' => 'Hello {customer_name}, it has been a while since your last visit to {parlour_name}. Would you like to book your next appointment?',
         'tpl_whatsapp_birthday' => 'Happy birthday {customer_name}! Warm wishes from {parlour_name}. Treat yourself to a visit this month.',
+        'tpl_whatsapp_booking'  => 'Hello {customer_name}, your appointment at {parlour_name} is booked for {date} at {time} ({services}). See you!',
+        // Automatic sending through the WhatsApp bridge (off until the owner links a number and switches it on)
+        'wa_auto_send'          => '0',
+        'wa_send_from'          => '09:00',
+        'wa_send_to'            => '21:00',
     ];
 
     public function run(): void

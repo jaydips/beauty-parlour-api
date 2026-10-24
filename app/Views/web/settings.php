@@ -11,6 +11,8 @@
             <textarea id="<?= esc($key) ?>" name="<?= esc($key) ?>" rows="3"><?= esc($value) ?></textarea>
         <?php elseif (in_array($key, ['slot_minutes', 'reminder_lead_hours', 'followup_days'], true)): ?>
             <input id="<?= esc($key) ?>" name="<?= esc($key) ?>" type="number" inputmode="numeric" min="0" step="1" value="<?= esc($value) ?>">
+        <?php elseif ($key === 'wa_send_from' || $key === 'wa_send_to'): ?>
+            <input id="<?= esc($key) ?>" name="<?= esc($key) ?>" type="time" value="<?= esc($value) ?>">
         <?php elseif ($key === 'parlour_phone' || $key === 'country_code'): ?>
             <input id="<?= esc($key) ?>" name="<?= esc($key) ?>" type="tel" inputmode="numeric" value="<?= esc($value) ?>">
         <?php else: ?>

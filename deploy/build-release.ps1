@@ -34,7 +34,7 @@ Write-Host "Staging      : $staging"
 New-Item -ItemType Directory -Force $staging | Out-Null
 
 # What goes to the server (vendor/ is rebuilt below; .env and tests/ are excluded on purpose)
-$include = @('app', 'public', 'writable', 'docs', 'deploy', 'composer.json', 'composer.lock', 'env', 'spark', 'preload.php', 'LICENSE', 'README.md')
+$include = @('app', 'public', 'writable', 'docs', 'deploy', 'whatsapp-bridge', 'composer.json', 'composer.lock', 'env', 'spark', 'preload.php', 'LICENSE', 'README.md')
 foreach ($item in $include) {
     $src = Join-Path $root $item
     if (Test-Path $src) {
@@ -49,6 +49,17 @@ Get-ChildItem (Join-Path $staging 'writable') -Recurse -File -Force |
 
 # Belt and braces: no environment file may ever be in the release
 Get-ChildItem $staging -Recurse -Force -Filter '.env' | Remove-Item -Force
+
+# WhatsApp bridge: ship the source only - node_modules is installed on the server (npm, one-off cron),
+# auth_state/ is the live WhatsApp session, .env.bridge holds the key, logs are runtime data.
+$bridge = Join-Path $staging 'whatsapp-bridge'
+if (Test-Path $bridge) {
+    foreach ($name in @('node_modules', 'auth_state')) {
+        $p = Join-Path $bridge $name
+        if (Test-Path $p) { Remove-Item -Recurse -Force $p }
+    }
+    Get-ChildItem $bridge -Force -File | Where-Object { $_.Name -eq '.env.bridge' -or $_.Name -eq '.restart' -or $_.Extension -eq '.log' } | Remove-Item -Force
+}
 
 Push-Location $staging
 try {

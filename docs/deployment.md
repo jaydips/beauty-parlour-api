@@ -158,6 +158,8 @@ is the only way to run them on the server):
 |---------|--------------|----------------|
 | `php spark db:backup [--keep N] [--dir PATH]` | copies the live SQLite file with `SQLite3::backup()` (safe while the app is writing) into `writable/backups/beauty_parlour-YYYYmmdd-HHiiss.sqlite`, chmod 0600, keeps the newest `N` files (default 14) | daily, 02:30 |
 | `php spark reminders:generate [--dry-run]` | creates the day's WhatsApp to-do list: birthday reminders (customers with `whatsapp_opt_in` and birthday today, due 09:00), follow-up reminders (last **completed** appointment exactly `followup_days` ago, no newer booking, due 10:00) and, as a safety net, appointment reminders for upcoming bookings that have none. Idempotent: running it twice creates nothing twice | daily, 08:30 |
+| `php spark whatsapp:send [--limit N]` | delivers queued outbox messages through the WhatsApp bridge (see `docs/whatsapp.md`); does nothing while `wa_auto_send` is 0 | every minute |
+| `/bin/bash whatsapp-bridge/start_bridge.sh` | watchdog that keeps the Node bridge process running (no-op until `.env.bridge` exists) | every minute |
 
 cPanel » Cron Jobs » *Add New Cron Job*. Use the full PHP binary path (the cron shell has no
 `php` alias); `>> file 2>&1` keeps a log instead of e-mailing every run. Create `/home/<cpanel-user>/tmp/`
@@ -166,13 +168,17 @@ first (File Manager) if it does not exist.
 ```
 30 2 * * *  /opt/cpanel/ea-php83/root/usr/bin/php /home/<cpanel-user>/beauty-parlour-api/spark db:backup --keep 14 >> /home/<cpanel-user>/tmp/cron-backup.log 2>&1
 30 8 * * *  /opt/cpanel/ea-php83/root/usr/bin/php /home/<cpanel-user>/beauty-parlour-api/spark reminders:generate >> /home/<cpanel-user>/tmp/cron-reminders.log 2>&1
+* * * * *   /bin/bash /home/<cpanel-user>/beauty-parlour-api/whatsapp-bridge/start_bridge.sh
+* * * * *   /opt/cpanel/ea-php83/root/usr/bin/php /home/<cpanel-user>/beauty-parlour-api/spark whatsapp:send >> /home/<cpanel-user>/tmp/cron-whatsapp.log 2>&1
 ```
 
 Notes:
 
-- Cron times are the **server's** clock, not `Asia/Kolkata`. Check the server time zone once (the log
-  lines carry the app time in IST, the file's modification time in File Manager shows server time) and
-  shift the hours if the server runs on UTC (08:30 IST = 03:00 UTC).
+- Cron times are the **server's** clock. Verified 2026-10-24 with a one-minute test job: the server
+  runs on **IST** (`date` printed `IST 2026`), `/opt/cpanel/ea-php83/root/usr/bin/php` has the
+  `sqlite3` extension and both commands ran from cron. The two daily jobs above were installed through
+  the cPanel API on the same day (they appear in cPanel » Cron Jobs with the comment
+  `# beauty-parlour-api`).
 - The backup folder lives inside `writable/backups/` next to the database (same disk, same account).
   Download it now and then from File Manager, or add a third cron job that copies the newest file
   elsewhere; 14 daily copies of a parlour database cost a few megabytes.

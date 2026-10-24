@@ -153,10 +153,22 @@ php spark db:backup --keep 14
 php spark reminders:generate --dry-run
 ```
 
+```bash
+php spark whatsapp:send
+```
+
 `db:backup` copies the database with `SQLite3::backup()` into `writable/backups/` and keeps the
 newest 14 files. `reminders:generate` creates the day's birthday, follow-up and missing appointment
-reminders (idempotent; `--dry-run` only prints). Both are scheduled as cPanel cron jobs on the
-server; see `docs/deployment.md` section 9 for the exact lines.
+reminders (idempotent; `--dry-run` only prints). `whatsapp:send` delivers the outbox through the
+WhatsApp bridge (every minute; no-op while automatic sending is off). All three are cPanel cron
+jobs on the server; see `docs/deployment.md` section 9 for the exact lines.
+
+### Automatic WhatsApp (Phase 4)
+
+`whatsapp-bridge/` is a small Node.js service (Baileys) that keeps the parlour's WhatsApp number
+linked and sends the messages the PHP outbox queues: booking confirmations, due reminders, birthday
+and follow-up messages and offer broadcasts (`/app/campaigns`). It is off until the owner links a
+number and switches auto-send on at `/app/whatsapp`. Setup, limits and risks: `docs/whatsapp.md`.
 
 ### Routes (current)
 

@@ -4,8 +4,10 @@ namespace Config;
 
 use App\Libraries\AppointmentService;
 use App\Libraries\DashboardService;
+use App\Libraries\Outbox;
 use App\Libraries\OwnerAuth;
 use App\Libraries\WhatsApp;
+use App\Libraries\WhatsAppBridge;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -35,6 +37,30 @@ class Services extends BaseService
         }
 
         return new WhatsApp();
+    }
+
+    /**
+     * HTTP client for the Node.js WhatsApp bridge (tests inject a fake with Services::injectMock).
+     */
+    public static function whatsappBridge(bool $getShared = true): WhatsAppBridge
+    {
+        if ($getShared) {
+            return static::getSharedInstance('whatsappBridge');
+        }
+
+        return new WhatsAppBridge();
+    }
+
+    /**
+     * Automatic WhatsApp outbox: queueing, campaigns and delivery through the bridge.
+     */
+    public static function outbox(bool $getShared = true): Outbox
+    {
+        if ($getShared) {
+            return static::getSharedInstance('outbox');
+        }
+
+        return new Outbox();
     }
 
     /**

@@ -66,6 +66,24 @@ $routes->group('app', ['filter' => ['webauth', 'csrf']], static function (RouteC
     $routes->get('settings', 'Web\Settings::show');
     $routes->post('settings', 'Web\Settings::update');
 
+    // Automatic WhatsApp (bridge link, auto-send switch, outbox)
+    $routes->get('whatsapp', 'Web\WhatsApp::index');
+    $routes->post('whatsapp/pair', 'Web\WhatsApp::pair');
+    $routes->post('whatsapp/logout', 'Web\WhatsApp::logout');
+    $routes->post('whatsapp/restart', 'Web\WhatsApp::restart');
+    $routes->post('whatsapp/auto-send', 'Web\WhatsApp::toggle');
+    $routes->post('whatsapp/test', 'Web\WhatsApp::test');
+    $routes->get('whatsapp/messages', 'Web\WhatsApp::messages');
+    $routes->post('whatsapp/messages/(:num)/retry', 'Web\WhatsApp::retry/$1');
+    $routes->post('whatsapp/messages/(:num)/cancel', 'Web\WhatsApp::cancel/$1');
+
+    // Offers / announcements to many customers
+    $routes->get('campaigns', 'Web\Campaigns::index');
+    $routes->get('campaigns/new', 'Web\Campaigns::create');
+    $routes->post('campaigns', 'Web\Campaigns::store');
+    $routes->get('campaigns/(:num)', 'Web\Campaigns::show/$1');
+    $routes->post('campaigns/(:num)/cancel', 'Web\Campaigns::cancel/$1');
+
     $routes->get('more', 'Web\More::index');
     $routes->get('password', 'Web\More::password');
     $routes->post('password', 'Web\More::updatePassword');
@@ -124,6 +142,24 @@ $routes->group('', ['filter' => 'ownerauth'], static function (RouteCollection $
     $routes->get('reports/revenue', 'Api\Reports::revenue');
     $routes->get('reports/services', 'Api\Reports::services');
     $routes->get('reports/dues', 'Api\Reports::dues');
+
+    // Automatic WhatsApp: bridge status/linking, outbox, offer campaigns
+    $routes->get('whatsapp/status', 'Api\WhatsApp::status');
+    $routes->post('whatsapp/pair', 'Api\WhatsApp::pair');
+    $routes->post('whatsapp/logout', 'Api\WhatsApp::logout');
+    $routes->post('whatsapp/test', 'Api\WhatsApp::test');
+
+    $routes->get('messages', 'Api\Messages::index');
+    $routes->post('messages', 'Api\Messages::create');
+    $routes->get('messages/(:num)', 'Api\Messages::show/$1');
+    $routes->post('messages/(:num)/retry', 'Api\Messages::retry/$1');
+    $routes->post('messages/(:num)/cancel', 'Api\Messages::cancel/$1');
+
+    $routes->get('campaigns', 'Api\Campaigns::index');
+    $routes->get('campaigns/preview', 'Api\Campaigns::preview');
+    $routes->post('campaigns', 'Api\Campaigns::create');
+    $routes->get('campaigns/(:num)', 'Api\Campaigns::show/$1');
+    $routes->post('campaigns/(:num)/cancel', 'Api\Campaigns::cancel/$1');
 });
 
 // JSON 404 for unknown routes (this is an API, not a website).

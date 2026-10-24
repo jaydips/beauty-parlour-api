@@ -173,6 +173,7 @@ class AppointmentService
         }
 
         $this->scheduleAppointmentReminder((int) $id);
+        service('outbox')->enqueueBookingConfirmation((int) $id); // no-op while automatic sending is off
 
         $db->transComplete();
 

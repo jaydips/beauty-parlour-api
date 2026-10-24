@@ -7,6 +7,8 @@
     <a class="card card-link" href="<?= site_url('app/services') ?>"><span>Services (price list)</span><span>&#8250;</span></a>
     <a class="card card-link" href="<?= site_url('app/payments') ?>"><span>Payments</span><span>&#8250;</span></a>
     <a class="card card-link" href="<?= site_url('app/reminders') ?>"><span>WhatsApp reminders</span><span>&#8250;</span></a>
+    <a class="card card-link" href="<?= site_url('app/whatsapp') ?>"><span>WhatsApp auto-send (bridge)</span><span>&#8250;</span></a>
+    <a class="card card-link" href="<?= site_url('app/campaigns') ?>"><span>Offers / broadcast messages</span><span>&#8250;</span></a>
     <a class="card card-link" href="<?= site_url('app/settings') ?>"><span>Settings</span><span>&#8250;</span></a>
     <a class="card card-link" href="<?= site_url('app/password') ?>"><span>Password બદલો</span><span>&#8250;</span></a>
 </div>

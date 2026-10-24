@@ -1,0 +1,20 @@
+{
+  "name": "beauty-parlour-whatsapp-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Keeps one linked WhatsApp account connected (Baileys) and sends text messages for the beauty-parlour-api PHP backend. Loopback HTTP only; see docs/whatsapp.md.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
+  }
+}

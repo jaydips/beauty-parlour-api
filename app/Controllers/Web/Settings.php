@@ -26,6 +26,9 @@ class Settings extends WebController
         'tpl_whatsapp_reminder' => 'WhatsApp template: appointment reminder',
         'tpl_whatsapp_followup' => 'WhatsApp template: follow-up',
         'tpl_whatsapp_birthday' => 'WhatsApp template: જન્મદિવસ',
+        'tpl_whatsapp_booking'  => 'WhatsApp template: booking confirmation (auto-send)',
+        'wa_send_from'          => 'Auto-send: આ સમયથી',
+        'wa_send_to'            => 'Auto-send: આ સમય સુધી',
     ];
 
     public function show(): string

@@ -109,3 +109,58 @@ if (! function_exists('method_label')) {
         };
     }
 }
+
+if (! function_exists('message_status_label')) {
+    /** Gujarati label for an outbox message status. */
+    function message_status_label(?string $status): string
+    {
+        return match ($status) {
+            'queued'    => 'કતારમાં',
+            'sent'      => 'મોકલાયું',
+            'failed'    => 'નિષ્ફળ',
+            'cancelled' => 'રદ',
+            default     => (string) $status,
+        };
+    }
+}
+
+if (! function_exists('message_status_class')) {
+    function message_status_class(?string $status): string
+    {
+        return match ($status) {
+            'queued'    => 'badge-amber',
+            'sent'      => 'badge-green',
+            'failed'    => 'badge-grey',
+            'cancelled' => 'badge-grey',
+            default     => 'badge-blue',
+        };
+    }
+}
+
+if (! function_exists('message_type_label')) {
+    /** Gujarati label for an outbox message type. */
+    function message_type_label(?string $type): string
+    {
+        return match ($type) {
+            'booking'     => 'Booking confirmation',
+            'appointment' => 'Appointment reminder',
+            'follow_up'   => 'Follow-up',
+            'birthday'    => 'જન્મદિવસ',
+            'offer'       => 'Offer',
+            'custom'      => 'Custom',
+            default       => (string) $type,
+        };
+    }
+}
+
+if (! function_exists('campaign_status_label')) {
+    function campaign_status_label(?string $status): string
+    {
+        return match ($status) {
+            'queued'    => 'મોકલાઈ રહ્યું છે',
+            'done'      => 'પૂર્ણ',
+            'cancelled' => 'રદ',
+            default     => (string) $status,
+        };
+    }
+}
