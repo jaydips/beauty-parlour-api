@@ -44,6 +44,11 @@ Options -Indexes
 	ErrorDocument 404 index.php
 </IfModule>
 
+# Web app manifest for "Add to Home Screen"
+<IfModule mod_mime.c>
+	AddType application/manifest+json .webmanifest
+</IfModule>
+
 # Disable server signature start
 ServerSignature Off
 # Disable server signature end

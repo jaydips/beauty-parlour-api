@@ -26,6 +26,7 @@ class CustomerModel extends Model
     protected $useSoftDeletes = true;
 
     protected $validationRules = [
+        'id'              => 'permit_empty|is_natural_no_zero', // placeholder for the is_unique rule on update
         'name'            => 'required|string|max_length[100]',
         'phone'           => 'required|regex_match[/^[0-9]{10}$/]|is_unique[customers.phone,id,{id}]',
         'alt_phone'       => 'permit_empty|regex_match[/^[0-9]{10}$/]',

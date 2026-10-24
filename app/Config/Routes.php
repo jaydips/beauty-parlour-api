@@ -27,6 +27,28 @@ $routes->post('logout', 'Web\Login::logout', ['filter' => 'csrf']);
 
 $routes->group('app', ['filter' => ['webauth', 'csrf']], static function (RouteCollection $routes): void {
     $routes->get('/', 'Web\Dashboard::index');
+
+    $routes->get('appointments', 'Web\Appointments::index');
+    $routes->get('appointments/new', 'Web\Appointments::create');
+    $routes->post('appointments', 'Web\Appointments::store');
+    $routes->get('appointments/(:num)', 'Web\Appointments::show/$1');
+    $routes->get('appointments/(:num)/edit', 'Web\Appointments::edit/$1');
+    $routes->post('appointments/(:num)', 'Web\Appointments::update/$1');
+    $routes->post('appointments/(:num)/status', 'Web\Appointments::status/$1');
+    $routes->post('appointments/(:num)/delete', 'Web\Appointments::delete/$1');
+
+    $routes->get('customers', 'Web\Customers::index');
+    $routes->get('customers/search', 'Web\Customers::search');
+    $routes->get('customers/new', 'Web\Customers::create');
+    $routes->post('customers', 'Web\Customers::store');
+    $routes->get('customers/(:num)', 'Web\Customers::show/$1');
+    $routes->get('customers/(:num)/edit', 'Web\Customers::edit/$1');
+    $routes->post('customers/(:num)', 'Web\Customers::update/$1');
+    $routes->post('customers/(:num)/delete', 'Web\Customers::delete/$1');
+
+    $routes->post('payments', 'Web\Payments::store');
+    $routes->post('payments/(:num)/delete', 'Web\Payments::delete/$1');
+
     $routes->post('reminders/(:num)/sent', 'Web\Reminders::sent/$1');
     $routes->post('reminders/(:num)/skip', 'Web\Reminders::skip/$1');
 });
