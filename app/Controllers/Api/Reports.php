@@ -6,7 +6,6 @@ namespace App\Controllers\Api;
 
 use App\Models\AppointmentModel;
 use App\Models\AppointmentServiceModel;
-use App\Models\CustomerModel;
 use App\Models\PaymentModel;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
@@ -78,41 +77,9 @@ class Reports extends ApiController
 
     public function dues(): ResponseInterface
     {
-        $payments  = new PaymentModel();
-        $completed = (new AppointmentModel())->where('status', AppointmentModel::STATUS_COMPLETED)->where('total >', 0)
-            ->orderBy('starts_at', 'DESC')->findAll();
+        $dues = service('dashboard')->pendingDues();
 
-        $paid = [];
-        if ($completed !== []) {
-            foreach ($payments->select('appointment_id, type, SUM(amount) AS total')
-                ->whereIn('appointment_id', array_column($completed, 'id'))
-                ->groupBy('appointment_id')->groupBy('type')->findAll() as $p) {
-                $sign = $p['type'] === PaymentModel::TYPE_REFUND ? -1 : 1;
-                $paid[(int) $p['appointment_id']] = ($paid[(int) $p['appointment_id']] ?? 0) + $sign * (int) $p['total'];
-            }
-        }
-
-        $list  = [];
-        $total = 0;
-        foreach ($completed as $a) {
-            $balance = (int) $a['total'] - ($paid[(int) $a['id']] ?? 0);
-            if ($balance > 0) {
-                $total += $balance;
-                $list[] = ['appointment_id' => (int) $a['id'], 'customer_id' => (int) $a['customer_id'], 'starts_at' => $a['starts_at'], 'total' => (int) $a['total'], 'paid' => $paid[(int) $a['id']] ?? 0, 'balance' => $balance];
-            }
-        }
-
-        if ($list !== []) {
-            $customers = [];
-            foreach ((new CustomerModel())->withDeleted()->whereIn('id', array_values(array_unique(array_column($list, 'customer_id'))))->findAll() as $c) {
-                $customers[(int) $c['id']] = ['id' => (int) $c['id'], 'name' => $c['name'], 'phone' => $c['phone']];
-            }
-            foreach ($list as &$row) {
-                $row['customer'] = $customers[$row['customer_id']] ?? null;
-            }
-        }
-
-        return $this->respond(['count' => count($list), 'total' => $total, 'dues' => $list]);
+        return $this->respond(['count' => $dues['count'], 'total' => $dues['total'], 'dues' => $dues['list']]);
     }
 
     /**

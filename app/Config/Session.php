@@ -31,7 +31,7 @@ class Session extends BaseConfig
      *
      * The session cookie name, must contain only [0-9a-z_-] characters
      */
-    public string $cookieName = 'ci_session';
+    public string $cookieName = 'bp_session';
 
     /**
      * --------------------------------------------------------------------------
@@ -40,8 +40,11 @@ class Session extends BaseConfig
      *
      * The number of SECONDS you want the session to last.
      * Setting to 0 (zero) means expire when the browser is closed.
+     *
+     * The browser UI is used by one owner on a phone: 30 days, so the login
+     * survives closing the browser ("Add to Home Screen" app behaviour).
      */
-    public int $expiration = 7200;
+    public int $expiration = 30 * 24 * 60 * 60;
 
     /**
      * --------------------------------------------------------------------------

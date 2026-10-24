@@ -33,7 +33,7 @@ class Security extends BaseConfig
      *
      * Token name for Cross Site Request Forgery protection.
      */
-    public string $tokenName = 'csrf_test_name';
+    public string $tokenName = 'csrf_token';
 
     /**
      * --------------------------------------------------------------------------
@@ -51,18 +51,19 @@ class Security extends BaseConfig
      *
      * Cookie name for Cross Site Request Forgery protection.
      */
-    public string $cookieName = 'csrf_cookie_name';
+    public string $cookieName = 'bp_csrf';
 
     /**
      * --------------------------------------------------------------------------
      * CSRF Expires
      * --------------------------------------------------------------------------
      *
-     * Expiration time for Cross Site Request Forgery protection cookie.
+     * Expiration time for Cross Site Random Forgery protection cookie.
      *
-     * Defaults to two hours (in seconds).
+     * Matches the 30-day browser session so a form left open on the phone
+     * for a while still submits.
      */
-    public int $expires = 7200;
+    public int $expires = 30 * 24 * 60 * 60;
 
     /**
      * --------------------------------------------------------------------------

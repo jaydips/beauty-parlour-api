@@ -53,8 +53,11 @@ class Cookie extends BaseConfig
      * --------------------------------------------------------------------------
      *
      * Cookie will only be set if a secure HTTPS connection exists.
+     *
+     * Production is HTTPS only (app.forceGlobalSecureRequests = true in the
+     * server .env); local development runs on plain http://localhost.
      */
-    public bool $secure = false;
+    public bool $secure = ENVIRONMENT === 'production';
 
     /**
      * --------------------------------------------------------------------------
