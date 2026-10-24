@@ -54,8 +54,11 @@ jobs:
           set -euo pipefail
           STAGE="$RUNNER_TEMP/release/beauty-parlour-api"
           mkdir -p "$STAGE"
-          cp -R app public writable docs deploy composer.json composer.lock env spark preload.php LICENSE README.md "$STAGE"/
+          cp -R app public writable docs deploy whatsapp-bridge composer.json composer.lock env spark preload.php LICENSE README.md "$STAGE"/
           find "$STAGE/writable" -type f ! -name index.html ! -name .htaccess -delete
+          # the bridge ships as source only: node_modules is installed on the server, auth_state/.env.bridge/logs are runtime data
+          rm -rf "$STAGE/whatsapp-bridge/node_modules" "$STAGE/whatsapp-bridge/auth_state"
+          rm -f "$STAGE"/whatsapp-bridge/.env.bridge "$STAGE"/whatsapp-bridge/*.log "$STAGE"/whatsapp-bridge/.restart
           (cd "$STAGE" && composer install --no-dev --optimize-autoloader --no-interaction --quiet)
           php deploy/make-zip.php "$RUNNER_TEMP/release" beauty-parlour-api "$RUNNER_TEMP/release.zip"
 
