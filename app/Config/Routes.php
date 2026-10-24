@@ -17,6 +17,23 @@ $routes->get('install/status', 'Install::status');
 $routes->get('install/migrate', 'Install::migrate');
 $routes->post('install/owner', 'Install::owner'); // one-time creation of the owner login
 
+// ---------------------------------------------------------------------------
+// Mobile web UI (server-rendered, browser session). Pages live under /app so
+// they never collide with the JSON API routes at the root.
+// ---------------------------------------------------------------------------
+$routes->get('login', 'Web\Login::show');
+$routes->post('login', 'Web\Login::attempt', ['filter' => 'csrf']);
+$routes->post('logout', 'Web\Login::logout', ['filter' => 'csrf']);
+
+$routes->group('app', ['filter' => ['webauth', 'csrf']], static function (RouteCollection $routes): void {
+    $routes->get('/', 'Web\Dashboard::index');
+    $routes->post('reminders/(:num)/sent', 'Web\Reminders::sent/$1');
+    $routes->post('reminders/(:num)/skip', 'Web\Reminders::skip/$1');
+});
+
+// ---------------------------------------------------------------------------
+// JSON API for the Flutter app
+// ---------------------------------------------------------------------------
 // Owner login (phone + password) -> bearer token
 $routes->post('auth/login', 'Auth::login');
 

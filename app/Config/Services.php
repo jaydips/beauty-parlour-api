@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Libraries\AppointmentService;
+use App\Libraries\DashboardService;
 use App\Libraries\OwnerAuth;
 use App\Libraries\WhatsApp;
 use CodeIgniter\Config\BaseService;
@@ -34,6 +35,18 @@ class Services extends BaseService
         }
 
         return new WhatsApp();
+    }
+
+    /**
+     * Home-screen data shared by the JSON API and the web UI.
+     */
+    public static function dashboard(bool $getShared = true): DashboardService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('dashboard');
+        }
+
+        return new DashboardService();
     }
 
     /**

@@ -73,8 +73,21 @@ if [ -n "${DOCROOT:-}" ]; then
   RES="$(uapi -F "dir=$DOCROOT" -F 'overwrite=1' -F 'permissions=0644' \
     -F "file-0=@$(lp "$STAGE/index.php");filename=index.php" -F "file-1=@$(lp "$STAGE/.htaccess");filename=.htaccess" \
     -F "file-2=@$(lp "$STAGE/robots.txt");filename=robots.txt" -F "file-3=@$(lp "$STAGE/favicon.ico");filename=favicon.ico" \
+    -F "file-4=@$(lp "$HERE/../public/manifest.webmanifest");filename=manifest.webmanifest" \
     "$API/execute/Fileman/upload_files")"
   [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] || { echo "docroot upload failed: $RES" >&2; exit 1; }
+
+  # static assets of the web UI (css, js, icons) -> DOCROOT/assets
+  ARGS=(); n=0
+  for f in "$HERE"/../public/assets/*; do
+    [ -f "$f" ] || continue
+    ARGS+=(-F "file-$n=@$(lp "$f");filename=$(basename "$f")"); n=$((n+1))
+  done
+  if [ "$n" -gt 0 ]; then
+    RES="$(uapi -F "dir=$DOCROOT/assets" -F 'overwrite=1' -F 'permissions=0644' "${ARGS[@]}" "$API/execute/Fileman/upload_files")"
+    [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] || { echo "assets upload failed: $RES" >&2; exit 1; }
+    echo "   assets uploaded: $n files"
+  fi
 else
   echo "== 4/6 document root sync skipped (DOCROOT not set)"
 fi

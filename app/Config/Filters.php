@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\OwnerAuthFilter;
+use App\Filters\WebAuthFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -36,6 +37,7 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'ownerauth'     => OwnerAuthFilter::class, // Bearer token issued by POST /auth/login
+        'webauth'       => WebAuthFilter::class,   // Browser session created by the /login page
     ];
 
     /**
