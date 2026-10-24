@@ -149,8 +149,40 @@ check that the page is styled; an unstyled page means the assets were not copied
 4. Set `install.key` in `.env`, call `/install/migrate`, comment the key out again.
 5. Check `/api/health`.
 
-## 9. Backups (to be automated in a later phase)
+## 9. Cron jobs: database backup and daily reminders
 
-Daily cron job calling a `spark` command that copies the database with `SQLite3::backup()` into
-`writable/backups/` with rotation, plus periodic downloads of that folder. Until then: File Manager
-» download `writable/database/beauty_parlour.sqlite` only when the parlour is closed.
+Two `spark` commands are meant to run from cPanel » **Cron Jobs** (the account has no SSH, so cron
+is the only way to run them on the server):
+
+| Command | What it does | Suggested time |
+|---------|--------------|----------------|
+| `php spark db:backup [--keep N] [--dir PATH]` | copies the live SQLite file with `SQLite3::backup()` (safe while the app is writing) into `writable/backups/beauty_parlour-YYYYmmdd-HHiiss.sqlite`, chmod 0600, keeps the newest `N` files (default 14) | daily, 02:30 |
+| `php spark reminders:generate [--dry-run]` | creates the day's WhatsApp to-do list: birthday reminders (customers with `whatsapp_opt_in` and birthday today, due 09:00), follow-up reminders (last **completed** appointment exactly `followup_days` ago, no newer booking, due 10:00) and, as a safety net, appointment reminders for upcoming bookings that have none. Idempotent: running it twice creates nothing twice | daily, 08:30 |
+
+cPanel » Cron Jobs » *Add New Cron Job*. Use the full PHP binary path (the cron shell has no
+`php` alias); `>> file 2>&1` keeps a log instead of e-mailing every run. Create `/home/<cpanel-user>/tmp/`
+first (File Manager) if it does not exist.
+
+```
+30 2 * * *  /opt/cpanel/ea-php83/root/usr/bin/php /home/<cpanel-user>/beauty-parlour-api/spark db:backup --keep 14 >> /home/<cpanel-user>/tmp/cron-backup.log 2>&1
+30 8 * * *  /opt/cpanel/ea-php83/root/usr/bin/php /home/<cpanel-user>/beauty-parlour-api/spark reminders:generate >> /home/<cpanel-user>/tmp/cron-reminders.log 2>&1
+```
+
+Notes:
+
+- Cron times are the **server's** clock, not `Asia/Kolkata`. Check the server time zone once (the log
+  lines carry the app time in IST, the file's modification time in File Manager shows server time) and
+  shift the hours if the server runs on UTC (08:30 IST = 03:00 UTC).
+- The backup folder lives inside `writable/backups/` next to the database (same disk, same account).
+  Download it now and then from File Manager, or add a third cron job that copies the newest file
+  elsewhere; 14 daily copies of a parlour database cost a few megabytes.
+- To check that the commands work before trusting the schedule, add a job with the schedule
+  `* * * * *` for the backup line, wait two minutes, open `tmp/cron-backup.log`, then change the
+  schedule to the daily one. A log line `backup written: beauty_parlour-...sqlite` means the CLI PHP
+  has the `sqlite3` extension and can open the database. If the CLI binary lacks `sqlite3`, try
+  `/opt/alt/php83/usr/bin/php` instead.
+- `reminders:generate --dry-run` prints what would be created without writing; handy as a one-off
+  job to check the data. Reminders appear in the app under *Reminders* with a WhatsApp button; the
+  app never sends messages by itself.
+- Both commands are safe to run by hand on the development machine too (`php spark db:backup`,
+  `php spark reminders:generate --dry-run`).

@@ -128,3 +128,7 @@ _modules/*
 
 /results/
 /phpunit.xml
+
+# SQLite backups written by `php spark db:backup` (data, never commit)
+/writable/backups/*
+!/writable/backups/index.html

@@ -143,6 +143,21 @@ php spark db:seed SettingsSeeder
 `migrate` creates `writable/database/beauty_parlour.sqlite` on first run. `php spark migrate:status`
 shows the batch table, `php spark migrate:rollback` drops the last batch (all tables of batch 1).
 
+### Maintenance commands (cron on the server)
+
+```bash
+php spark db:backup --keep 14
+```
+
+```bash
+php spark reminders:generate --dry-run
+```
+
+`db:backup` copies the database with `SQLite3::backup()` into `writable/backups/` and keeps the
+newest 14 files. `reminders:generate` creates the day's birthday, follow-up and missing appointment
+reminders (idempotent; `--dry-run` only prints). Both are scheduled as cPanel cron jobs on the
+server; see `docs/deployment.md` section 9 for the exact lines.
+
 ### Routes (current)
 
 | Route | Purpose |
@@ -279,10 +294,11 @@ Therefore:
   stay writable.
 - The file must never sit under a document root. `writable/` is outside `public/` and carries a
   deny-all `.htaccess` as defense in depth.
-- Backups: copy the file only through SQLite's online backup API (`SQLite3::backup()`, available on
-  the host) from a cron job into `writable/backups/` with rotation, then download periodically.
-  A raw `cp` while a write is in progress can produce a corrupt copy. cPanel's account backups
-  (enabled by the host) include the home directory and are a second line of defence, not the first.
+- Backups: `php spark db:backup` copies the file through SQLite's online backup API
+  (`SQLite3::backup()`) from a daily cron job into `writable/backups/` with rotation
+  (`docs/deployment.md` section 9); download that folder periodically. A raw `cp` while a write is
+  in progress can produce a corrupt copy. cPanel's account backups (enabled by the host) include the
+  home directory and are a second line of defence, not the first.
 - Single-owner workload means one writer at a time in practice; `busyTimeout` covers the overlap
   between a web request and a cron run.
 
