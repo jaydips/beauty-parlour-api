@@ -24,9 +24,12 @@ number, send window, switching on, reading the outbox. The same steps are shown 
 `{date}` rendered as "શનિવાર, 25 ઑક્ટોબર 2026" and `{time}` as "સવારે 10:30" (`format_helper.php`:
 `gu_date()`, `gu_time()`). Migration `2026-10-25-100001` converts an existing installation: it
 replaces a template only while its value is still the old English default, so edited templates
-survive. Migration `2026-10-25-120001` then upgrades the plain Gujarati defaults to the current
-texts with WhatsApp `*bold*` markup and emoji (same rule: untouched defaults only). WhatsApp renders
-`*bold*`, `_italic_` and `~strikethrough~` in sent text and in `wa.me` prefilled messages alike. Text is UTF-8 end to end: SQLite stores it as is, the MySQL config uses `utf8mb4`
+survive. Migration `2026-10-25-120001` upgrades the plain Gujarati defaults to texts with WhatsApp
+`*bold*` markup and emoji, and `2026-10-25-130001` to the current structure (greeting + status,
+detail lines, parlour signature `*{parlour_name}*` / `📍 {parlour_address}` / `📞 {parlour_phone}`,
+closing line; `{date}` as dd/mm/yyyy) - same rule each time: untouched defaults only. A signature
+line whose placeholder is empty is dropped by `WhatsApp::render()`. WhatsApp renders `*bold*`,
+`_italic_` and `~strikethrough~` in sent text and in `wa.me` prefilled messages alike. Text is UTF-8 end to end: SQLite stores it as is, the MySQL config uses `utf8mb4`
 (`app/Config/Database.php`; an emoji in a template needs that too), `wa.me` links percent-encode
 the UTF-8 bytes (`rawurlencode`), and the bridge receives JSON (`\uXXXX` escapes) and reads the
 request body as one UTF-8 stream.

@@ -125,7 +125,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertSame('queued', $row['status']);
         $this->assertStringContainsString('નમસ્તે આશા', $row['body']);
         $this->assertStringContainsString('મારું બ્યુટી પાર્લર', $row['body']);
-        $this->assertStringContainsString('શનિવાર, 7 નવેમ્બર 2026', $row['body'], '{date} is Gujarati');
+        $this->assertStringContainsString('📅 *તારીખ:* 07/11/2026', $row['body'], '{date} is dd/mm/yyyy');
         $this->assertStringContainsString('સવારે 10:30', $row['body'], '{time} is Gujarati');
         $this->assertStringContainsString('Haircut', $row['body']);
         $this->assertStringNotContainsString('{', $row['body'], 'every placeholder is replaced');
@@ -135,7 +135,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $rows = (new MessageModel())->where('appointment_id', $a['id'])->where('type', 'booking')->findAll();
         $this->assertCount(1, $rows);
         $this->assertSame('queued', $rows[0]['status']);
-        $this->assertStringContainsString('રવિવાર, 8 નવેમ્બર 2026', $rows[0]['body']);
+        $this->assertStringContainsString('08/11/2026', $rows[0]['body']);
         $this->assertStringContainsString('સાંજે 6:00', $rows[0]['body']);
         $this->assertStringContainsString('Facial', $rows[0]['body']);
         $this->assertStringNotContainsString('Haircut', $rows[0]['body']);

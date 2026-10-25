@@ -81,27 +81,47 @@ final class GujaratiFormatTest extends CIUnitTestCase
         $appt     = ['starts_at' => '2026-11-07 10:30:00'];
         $items    = [['service_name' => 'Haircut'], ['service_name' => 'Facial']];
 
+        // no address / phone configured: the signature keeps only the parlour name
         $booking = $wa->bookingMessage($customer, $appt, $items);
-        $this->assertStringStartsWith("💖 *નમસ્તે આશા પટેલ!*\n✅ *મારું બ્યુટી પાર્લર* માં તમારી અપોઇન્ટમેન્ટ *બુક થઈ ગઈ છે.*", $booking);
-        $this->assertStringContainsString("📅 *તારીખ:* શનિવાર, 7 નવેમ્બર 2026\n⏰ *સમય:* સવારે 10:30\n💇‍♀️ *સેવા:* Haircut, Facial", $booking);
-        $this->assertStringEndsWith('🙏 સમયસર પધારશો. આભાર! ✨', $booking);
+        $this->assertSame(
+            "✅ *નમસ્તે આશા પટેલ!* તમારી અપોઇન્ટમેન્ટ બુક થઈ ગઈ છે.\n\n📅 *તારીખ:* 07/11/2026\n⏰ *સમય:* સવારે 10:30\n💅 *સર્વિસ:* Haircut, Facial\n\n*મારું બ્યુટી પાર્લર*\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
+            $booking,
+        );
+
+        // with address and phone the signature has three lines
+        $settings = new SettingModel();
+        $settings->setValue('parlour_address', 'સ્ટેશન રોડ, સુરત');
+        $settings->setValue('parlour_phone', '9033319266');
+        $booking = $wa->bookingMessage($customer, $appt, $items);
+        $this->assertStringContainsString("*મારું બ્યુટી પાર્લર*\n📍 સ્ટેશન રોડ, સુરત\n📞 9033319266\n\nકોઈ ફેરફાર", $booking);
         $this->assertStringNotContainsString('{', $booking);
 
         $reminder = $wa->appointmentMessage($customer, $appt, []);
-        $this->assertStringStartsWith('⏰ *રિમાઇન્ડર – નમસ્તે આશા પટેલ!*', $reminder);
-        $this->assertStringContainsString('💇‍♀️ *સેવા:* તમારી અપોઇન્ટમેન્ટ', $reminder, 'services fallback is Gujarati');
+        $this->assertStringStartsWith('⏰ *નમસ્તે આશા પટેલ!* તમારી અપોઇન્ટમેન્ટનું રિમાઇન્ડર.', $reminder);
+        $this->assertStringContainsString('💅 *સર્વિસ:* તમારી અપોઇન્ટમેન્ટ', $reminder, 'services fallback is Gujarati');
 
-        $this->assertStringStartsWith('🎂🎉 *જન્મદિવસની હાર્દિક શુભેચ્છાઓ આશા પટેલ!* 🎉🎂', $wa->birthdayMessage($customer));
-        $this->assertStringContainsString('📅 *મારું બ્યુટી પાર્લર* માં તમારી આગલી અપોઇન્ટમેન્ટ બુક કરવાનો સમય', $wa->followUpMessage($customer));
-        $this->assertStringContainsString("*ખાસ ઑફર!*\n📲", $wa->template('offer'));
-        $this->assertStringEndsWith('_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_', $wa->template('offer'));
+        $this->assertStringStartsWith('🎂 *નમસ્તે આશા પટેલ!* જન્મદિવસની હાર્દિક શુભેચ્છાઓ! 🎉', $wa->birthdayMessage($customer));
+        $this->assertStringStartsWith('🌸 *નમસ્તે આશા પટેલ!* તમારી છેલ્લી મુલાકાતને ઘણો સમય થયો.', $wa->followUpMessage($customer));
+        $this->assertStringContainsString('📞 9033319266', $wa->followUpMessage($customer));
+        $this->assertStringContainsString('આ અઠવાડિયે ખાસ ઑફર!', $wa->template('offer'));
+        $this->assertStringEndsWith("આભાર! 🌸\n_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_", $wa->template('offer'));
         $this->assertSame('મારું બ્યુટી પાર્લર તરફથી ટેસ્ટ મેસેજ: ઑટો WhatsApp બરાબર ચાલે છે.', $wa->testMessage());
 
         // the owner's own text wins; an emptied template falls back to the default
-        (new SettingModel())->setValue('tpl_whatsapp_booking', 'Hi {customer_name}, booked on {date} at {time}.');
-        $this->assertSame('Hi આશા પટેલ, booked on શનિવાર, 7 નવેમ્બર 2026 at સવારે 10:30.', $wa->bookingMessage($customer, $appt, $items));
-        (new SettingModel())->setValue('tpl_whatsapp_booking', '');
-        $this->assertStringStartsWith('💖 *નમસ્તે આશા પટેલ!*', $wa->bookingMessage($customer, $appt, $items));
+        $settings->setValue('tpl_whatsapp_booking', 'Hi {customer_name}, booked on {date} at {time}.');
+        $this->assertSame('Hi આશા પટેલ, booked on 07/11/2026 at સવારે 10:30.', $wa->bookingMessage($customer, $appt, $items));
+        $settings->setValue('tpl_whatsapp_booking', '');
+        $this->assertStringStartsWith('✅ *નમસ્તે આશા પટેલ!*', $wa->bookingMessage($customer, $appt, $items));
+    }
+
+    public function testRenderDropsOnlyDecorationLinesLeftByEmptyPlaceholders(): void
+    {
+        $wa   = new WhatsApp();
+        $vars = ['customer_name' => 'આશા', 'parlour_address' => '', 'parlour_phone' => ' ', 'services' => ''];
+
+        $out = $wa->render("નમસ્તે {customer_name}\n📍 {parlour_address}\n📞 {parlour_phone}\n💅 *સર્વિસ:* {services}\n\nઆભાર", $vars);
+        $this->assertSame("નમસ્તે આશા\n💅 *સર્વિસ:*\n\nઆભાર", $out, 'emoji-only lines go, lines with words stay, blank lines stay');
+        $this->assertSame('📍 રોડ', $wa->render('📍 {parlour_address}', ['parlour_address' => 'રોડ']));
     }
 
     public function testEmojiAndBoldMarkupSurviveStorageAndRendering(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Database\Seeds\ServicesSeeder;
 use App\Database\Seeds\SettingsSeeder;
 use App\Libraries\OwnerAuth;
 use App\Models\OwnerModel;
@@ -21,7 +22,7 @@ use Throwable;
  * comment out `install.key` on the server once migrations have been applied.
  *
  *   GET /install/status?key=...   -> applied and pending migrations
- *   GET /install/migrate?key=...  -> run pending migrations + SettingsSeeder
+ *   GET /install/migrate?key=...  -> run pending migrations + SettingsSeeder + ServicesSeeder (both idempotent)
  */
 class Install extends BaseController
 {
@@ -52,13 +53,17 @@ class Install extends BaseController
             $seeder = Database::seeder();
             $seeder->setSilent(true);
             $seeder->call(SettingsSeeder::class);
+
+            // the standard price list: inserts only names that do not exist yet (idempotent per deploy)
+            $services = new ServicesSeeder(config(Database::class));
+            $services->run();
         } catch (Throwable $e) {
             log_message('error', 'Install::migrate failed: {message}', ['message' => $e->getMessage()]);
 
             return $this->fail(['migrated' => false, 'error' => $e->getMessage()], 500);
         }
 
-        return $this->respond(['migrated' => true] + $this->report());
+        return $this->respond(['migrated' => true, 'services_seeded' => ['inserted' => $services->inserted, 'existing' => $services->skipped]] + $this->report());
     }
 
     /**

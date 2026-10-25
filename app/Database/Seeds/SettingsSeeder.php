@@ -34,13 +34,14 @@ class SettingsSeeder extends Seeder
         'reminder_lead_hours'   => '24',
         'followup_days'         => '30',
         // WhatsApp formatting: *bold*, _italic_; emoji need utf8mb4 on MySQL (SQLite stores UTF-8 as is).
-        // Same texts as the Flutter app's local defaults (2026-10-25); migration 2026-10-25-120001 upgrades
-        // existing installations that still carry the previous plain Gujarati defaults.
-        'tpl_whatsapp_booking'  => "💖 *નમસ્તે {customer_name}!*\n✅ *{parlour_name}* માં તમારી અપોઇન્ટમેન્ટ *બુક થઈ ગઈ છે.*\n\n📅 *તારીખ:* {date}\n⏰ *સમય:* {time}\n💇‍♀️ *સેવા:* {services}\n\n🙏 સમયસર પધારશો. આભાર! ✨",
-        'tpl_whatsapp_reminder' => "⏰ *રિમાઇન્ડર – નમસ્તે {customer_name}!*\n📍 *{parlour_name}* માં તમારી અપોઇન્ટમેન્ટ:\n\n📅 *તારીખ:* {date}\n🕒 *સમય:* {time}\n💇‍♀️ *સેવા:* {services}\n\n🔁 સમય બદલવો હોય તો આ મેસેજનો જવાબ આપો.\n💖 મળીએ!",
-        'tpl_whatsapp_followup' => "🌟 *નમસ્તે {customer_name}!*\n💆‍♀️ આશા છે કે તમારી છેલ્લી સેવા તમને ગમી હશે!\n📅 *{parlour_name}* માં તમારી આગલી અપોઇન્ટમેન્ટ બુક કરવાનો સમય થઈ ગયો છે.\n✨ તમારા માટે slot *reserve* કરીએ? આ મેસેજનો જવાબ આપો અથવા ફોન કરો. 💖",
-        'tpl_whatsapp_birthday' => "🎂🎉 *જન્મદિવસની હાર્દિક શુભેચ્છાઓ {customer_name}!* 🎉🎂\n🌸 *{parlour_name}* તરફથી ખૂબ ખૂબ શુભકામનાઓ.\n💖 આ મહિને મુલાકાત લઈને પોતાને ખુશ કરો! ✨",
-        'tpl_whatsapp_offer'    => "🎁 *નમસ્તે {customer_name}!*\n✨ *{parlour_name}* માં આ અઠવાડિયે *ખાસ ઑફર!*\n📲 વધુ માહિતી માટે આ મેસેજનો જવાબ આપો. 💖\n_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_",
+        // Structure (owner's sample, 2026-10-25): greeting with the customer's name in bold + status,
+        // detail lines, parlour signature ({parlour_address} / {parlour_phone} lines vanish when empty),
+        // closing line. Migration 2026-10-25-130001 upgrades installations still on the previous defaults.
+        'tpl_whatsapp_booking'  => "✅ *નમસ્તે {customer_name}!* તમારી અપોઇન્ટમેન્ટ બુક થઈ ગઈ છે.\n\n📅 *તારીખ:* {date}\n⏰ *સમય:* {time}\n💅 *સર્વિસ:* {services}\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
+        'tpl_whatsapp_reminder' => "⏰ *નમસ્તે {customer_name}!* તમારી અપોઇન્ટમેન્ટનું રિમાઇન્ડર.\n\n📅 *તારીખ:* {date}\n⏰ *સમય:* {time}\n💅 *સર્વિસ:* {services}\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
+        'tpl_whatsapp_followup' => "🌸 *નમસ્તે {customer_name}!* તમારી છેલ્લી મુલાકાતને ઘણો સમય થયો.\n\n✨ આગલી અપોઇન્ટમેન્ટ બુક કરવા આ મેસેજનો જવાબ આપો અથવા ફોન કરો.\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
+        'tpl_whatsapp_birthday' => "🎂 *નમસ્તે {customer_name}!* જન્મદિવસની હાર્દિક શુભેચ્છાઓ! 🎉\n\n💖 આ મહિને મુલાકાત લઈને પોતાને ખુશ કરો. ✨\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
+        'tpl_whatsapp_offer'    => "🎁 *નમસ્તે {customer_name}!* આ અઠવાડિયે ખાસ ઑફર!\n\n✨ વધુ માહિતી માટે આ મેસેજનો જવાબ આપો.\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸\n_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_",
         // Automatic sending through the WhatsApp bridge (off until the owner links a number and switches it on)
         'wa_auto_send'          => '0',
         'wa_send_from'          => '09:00',

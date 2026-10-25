@@ -161,6 +161,11 @@ What changes on the server with this release, in addition to the steps above:
   plain Gujarati defaults to the WhatsApp *bold* + emoji texts (the Flutter app ships the same ones);
   again only rows still at the previous default change. On MySQL the emoji need the `utf8mb4`
   charset that `app/Config/Database.php` now sets; the live SQLite needs nothing.
+- Third release the same day: migration `2026-10-25-130001_SignatureTemplateDefaults` (greeting +
+  status, detail lines, parlour signature with `{parlour_address}` / `{parlour_phone}`, closing
+  line; `{date}` as dd/mm/yyyy), same "untouched defaults only" rule. `/install/migrate` now also
+  runs `ServicesSeeder` on every deploy: 85 standard services are inserted the first time
+  (`services_seeded.inserted` in its JSON answer), later deploys skip existing names.
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

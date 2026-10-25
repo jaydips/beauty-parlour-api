@@ -14,8 +14,8 @@ use CodeIgniter\I18n\Time;
  * Renders the owner's WhatsApp templates (settings tpl_whatsapp_*, Gujarati by default) and builds
  * https://wa.me links for the manual flow. Nothing here sends a message: the manual flow opens the
  * link in the owner's own WhatsApp, the automatic flow (Outbox) stores the rendered text in the
- * outbox for `spark whatsapp:send`. Placeholders: {customer_name} {parlour_name} {date} {time}
- * {services}; {date} and {time} are Gujarati ("શનિવાર, 25 ઑક્ટોબર 2026", "સવારે 10:30").
+ * outbox for `spark whatsapp:send`. Placeholders: {customer_name} {parlour_name} {parlour_address}
+ * {parlour_phone} {date} {time} {services}; {date} is dd/mm/yyyy, {time} Gujarati ("સવારે 10:30").
  */
 class WhatsApp
 {
@@ -36,7 +36,9 @@ class WhatsApp
     }
 
     /**
-     * Replaces {placeholders} in a template.
+     * Replaces {placeholders} in a template. A line that only carried an empty placeholder (for
+     * example "📍 {parlour_address}" while no address is set) is dropped, so the signature block
+     * never shows an orphaned emoji; lines with real text are always kept.
      *
      * @param array<string, scalar|null> $vars
      */
@@ -44,13 +46,45 @@ class WhatsApp
     {
         $search  = [];
         $replace = [];
+        $empty   = [];
 
         foreach ($vars as $key => $value) {
+            $value     = (string) ($value ?? '');
             $search[]  = '{' . $key . '}';
-            $replace[] = (string) ($value ?? '');
+            $replace[] = $value;
+
+            if (trim($value) === '') {
+                $empty[] = '{' . $key . '}';
+            }
         }
 
-        return trim(str_replace($search, $replace, $template));
+        $lines = [];
+
+        foreach (preg_split('/\R/u', $template) ?: [] as $line) {
+            $rendered = str_replace($search, $replace, $line);
+
+            if ($empty !== [] && $this->containsAny($line, $empty) && ! preg_match('/[\p{L}\p{N}]/u', $rendered)) {
+                continue; // nothing but decoration left after an empty placeholder
+            }
+
+            $lines[] = rtrim($rendered);
+        }
+
+        return trim(implode("\n", $lines));
+    }
+
+    /**
+     * @param list<string> $needles
+     */
+    private function containsAny(string $haystack, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -84,13 +118,15 @@ class WhatsApp
     public function baseVars(array $customer): array
     {
         return [
-            'customer_name' => (string) ($customer['name'] ?? ''),
-            'parlour_name'  => (string) ($this->settings->value('parlour_name') ?: SettingsSeeder::DEFAULTS['parlour_name']),
+            'customer_name'   => (string) ($customer['name'] ?? ''),
+            'parlour_name'    => (string) ($this->settings->value('parlour_name') ?: SettingsSeeder::DEFAULTS['parlour_name']),
+            'parlour_address' => trim((string) $this->settings->value('parlour_address', '')),
+            'parlour_phone'   => trim((string) $this->settings->value('parlour_phone', '')),
         ];
     }
 
     /**
-     * {date}, {time} and {services} for an appointment, in Gujarati.
+     * {date} (dd/mm/yyyy), {time} (Gujarati, "સવારે 10:30") and {services} for an appointment.
      *
      * @param list<array<string, mixed>> $items
      *
@@ -104,7 +140,7 @@ class WhatsApp
         $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
 
         return [
-            'date'     => gu_date($starts, true, true),
+            'date'     => $starts->format('d/m/Y'),
             'time'     => gu_time($starts),
             'services' => $services !== '' ? $services : lang('App.services_fallback'),
         ];

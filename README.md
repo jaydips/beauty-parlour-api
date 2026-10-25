@@ -188,7 +188,7 @@ number and switches auto-send on at `/app/whatsapp`. Setup, limits and risks: `d
 | `GET /` | Browser: 302 to `/login` (or `/app` with a web session). `Accept: application/json`: the JSON API root |
 | `GET /health` | Liveness check: framework, PHP, environment, timezone, database driver/version. Production: `https://delicate.jainamagrifood.com/health` |
 | `GET /install/status?key=…` | Applied and pending migrations (404 without the exact `install.key` from `.env`) |
-| `GET /install/migrate?key=…` | Runs pending migrations and `SettingsSeeder` (same protection) |
+| `GET /install/migrate?key=…` | Runs pending migrations, `SettingsSeeder` and `ServicesSeeder` (standard price list, insert-only; same protection) |
 | `POST /install/owner?key=…` | One-time creation of the owner login |
 | `POST /auth/login` and the JSON API | For the Flutter app, see [docs/api.md](docs/api.md) |
 | `GET /login`, `/app/...` | Mobile web UI (browser session). Pages: `/app` dashboard, `/app/appointments`, `/app/customers`, `/app/services`, `/app/payments`, `/app/reminders`, `/app/settings`, `/app/password`, `/app/more` |

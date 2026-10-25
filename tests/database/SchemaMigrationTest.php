@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Database\Seeds\ServicesSeeder;
 use App\Database\Seeds\SettingsSeeder;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -79,23 +80,36 @@ final class SchemaMigrationTest extends CIUnitTestCase
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_followup', 'value' => $customised]);
     }
 
+    public function testTemplateMigrationChainEndsAtTheSeederDefaults(): void
+    {
+        // every template migration looks for exactly what the previous one wrote, and the last one
+        // writes the seeder's defaults: fresh and upgraded installations end up identical
+        $chain = [];
+
+        foreach ($this->templateMigrations() as $class) {
+            $chain[] = $class::REPLACEMENTS;
+        }
+
+        for ($i = 1, $n = count($chain); $i < $n; $i++) {
+            foreach ($chain[$i] as $key => $texts) {
+                if (isset($chain[$i - 1][$key])) {
+                    $this->assertSame($chain[$i - 1][$key][1], $texts[0], "{$key}: migration {$i} must continue migration " . ($i - 1));
+                }
+            }
+        }
+
+        foreach (end($chain) as $key => $texts) {
+            $this->assertSame(SettingsSeeder::DEFAULTS[$key], $texts[1], "{$key}: last migration writes the seeder default");
+            $this->assertStringContainsString('*', $texts[1], "{$key}: WhatsApp bold markup");
+            $this->assertStringContainsString('{parlour_name}', $texts[1]);
+        }
+    }
+
     public function testEmojiTemplateMigrationUpgradesOnlyThePreviousDefaults(): void
     {
-        require_once APPPATH . 'Database/Migrations/2026-10-25-100001_GujaratiTemplateDefaults.php';
-        require_once APPPATH . 'Database/Migrations/2026-10-25-120001_EmojiTemplateDefaults.php';
-
-        $plain = \App\Database\Migrations\GujaratiTemplateDefaults::REPLACEMENTS;
-        $emoji = \App\Database\Migrations\EmojiTemplateDefaults::REPLACEMENTS;
-
-        // the chain is consistent: what 100001 wrote is exactly what 120001 looks for, and the new
-        // texts are the seeder's defaults (so fresh and upgraded installations end up identical)
-        foreach ($plain as $key => $texts) {
-            $this->assertSame($texts[1], $emoji[$key][0], "{$key}: 120001 must match 100001's result");
-        }
-        foreach ($emoji as $key => $texts) {
-            $this->assertSame(SettingsSeeder::DEFAULTS[$key], $texts[1], "{$key}: seeder default");
-            $this->assertStringContainsString('*', $texts[1], "{$key}: WhatsApp bold markup");
-        }
+        [, $emojiClass, $signatureClass] = $this->templateMigrations();
+        $emoji     = $emojiClass::REPLACEMENTS;
+        $signature = $signatureClass::REPLACEMENTS;
 
         $settings   = $this->db->table('settings');
         $customised = "મારો પોતાનો મેસેજ {customer_name} 💖";
@@ -106,17 +120,72 @@ final class SchemaMigrationTest extends CIUnitTestCase
         }
         $settings->where('key', 'tpl_whatsapp_birthday')->update(['value' => $customised]);
 
-        $migration = new \App\Database\Migrations\EmojiTemplateDefaults(\Config\Database::forge($this->db));
+        $migration = new $emojiClass(\Config\Database::forge($this->db));
         $migration->up();
 
         foreach (['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_offer'] as $key) {
-            $this->seeInDatabase('settings', ['key' => $key, 'value' => SettingsSeeder::DEFAULTS[$key]]);
+            $this->seeInDatabase('settings', ['key' => $key, 'value' => $emoji[$key][1]]);
         }
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $customised]);
 
+        // the signature migration takes the chain to the current defaults, still skipping the edited row
+        $next = new $signatureClass(\Config\Database::forge($this->db));
+        $next->up();
+
+        foreach (['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_offer'] as $key) {
+            $this->seeInDatabase('settings', ['key' => $key, 'value' => SettingsSeeder::DEFAULTS[$key]]);
+            $this->assertStringContainsString('{parlour_phone}', $signature[$key][1]);
+        }
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $customised]);
+
+        $next->down();
         $migration->down();
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_offer', 'value' => $emoji['tpl_whatsapp_offer'][0]]);
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $customised]);
+    }
+
+    public function testServicesSeederInsertsTheStandardListOnceAndNeverTouchesExistingRows(): void
+    {
+        $services = $this->db->table('services');
+        $services->insert(['name' => 'HAIRCUT (women)', 'price' => 999, 'duration_minutes' => 50, 'is_active' => 0, 'sort_order' => 7]);
+        $services->insert(['name' => 'Pedicure', 'price' => 650, 'duration_minutes' => 60, 'is_active' => 1, 'deleted_at' => '2026-10-01 10:00:00']);
+
+        $seeder = new ServicesSeeder(config('Database'), $this->db);
+        $seeder->run();
+
+        $this->assertSame(count(ServicesSeeder::SERVICES) - 2, $seeder->inserted, 'case-insensitive and soft-deleted names are skipped');
+        $this->assertSame(2, $seeder->skipped);
+        $this->assertSame(count(ServicesSeeder::SERVICES), $services->countAllResults());
+        $this->seeInDatabase('services', ['name' => 'HAIRCUT (women)', 'price' => 999, 'is_active' => 0, 'sort_order' => 7]);
+        $this->seeInDatabase('services', ['name' => 'Pedicure', 'price' => 650]);
+        $this->seeInDatabase('services', ['name' => 'Hair Spa', 'category' => 'વાળ', 'price' => 800, 'duration_minutes' => 60, 'is_active' => 1, 'sort_order' => 6]);
+        $this->seeInDatabase('services', ['name' => 'Rica Wax – Full Arms', 'category' => 'વેક્સિંગ', 'price' => 500]);
+        $this->seeInDatabase('services', ['name' => 'Saree Pre-pleating', 'category' => 'અન્ય', 'sort_order' => count(ServicesSeeder::SERVICES)]);
+
+        $seeder->run();
+        $this->assertSame(0, $seeder->inserted, 'second run inserts nothing');
+        $this->assertSame(count(ServicesSeeder::SERVICES), $this->db->table('services')->countAllResults());
+
+        $names = array_map(static fn (array $s): string => mb_strtolower($s[1]), ServicesSeeder::SERVICES);
+        $this->assertSame(count($names), count(array_unique($names)), 'the list itself has no duplicate names');
+    }
+
+    /**
+     * Template migrations in order; the files are outside the composer classmap, hence require_once.
+     *
+     * @return list<class-string>
+     */
+    private function templateMigrations(): array
+    {
+        require_once APPPATH . 'Database/Migrations/2026-10-25-100001_GujaratiTemplateDefaults.php';
+        require_once APPPATH . 'Database/Migrations/2026-10-25-120001_EmojiTemplateDefaults.php';
+        require_once APPPATH . 'Database/Migrations/2026-10-25-130001_SignatureTemplateDefaults.php';
+
+        return [
+            \App\Database\Migrations\GujaratiTemplateDefaults::class,
+            \App\Database\Migrations\EmojiTemplateDefaults::class,
+            \App\Database\Migrations\SignatureTemplateDefaults::class,
+        ];
     }
 
     public function testCustomerPhoneIsUnique(): void
