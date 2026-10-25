@@ -38,7 +38,7 @@ final class WebMoreTest extends CIUnitTestCase
 
     public function testServicesCrud(): void
     {
-        $this->withSession($this->ownerSession)->get('app/services')->assertSee('હજુ કોઈ service નથી');
+        $this->withSession($this->ownerSession)->get('app/services')->assertSee('હજુ કોઈ સેવા નથી');
 
         $this->withSession($this->ownerSession)->post('app/services', $this->csrf(['name' => 'Haircut', 'price' => '500', 'duration_minutes' => '45', 'is_active' => '1']))->assertStatus(302);
         $this->seeInDatabase('services', ['name' => 'Haircut', 'price' => 500, 'is_active' => 1]);
@@ -102,6 +102,17 @@ final class WebMoreTest extends CIUnitTestCase
         $page = $this->withSession($this->ownerSession)->get('app/settings');
         $page->assertStatus(200);
         $page->assertSee('Delicate');
+        $page->assertSee('નવી બુકિંગ પર ઑટો WhatsApp');
+        $page->assertSee('નમસ્તે {customer_name}');
+
+        // the auto-WhatsApp switch on the settings page (checkbox + hidden 0 fallback)
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['wa_auto_send' => '1', 'wa_send_from' => '08:30', 'wa_send_to' => '20:00']))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'wa_auto_send', 'value' => '1']);
+        $this->seeInDatabase('settings', ['key' => 'wa_send_from', 'value' => '08:30']);
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['wa_auto_send' => '0']))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'wa_auto_send', 'value' => '0']);
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['wa_send_to' => '25:00']))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'wa_send_to', 'value' => '20:00']);
     }
 
     public function testPasswordChangeAndLogout(): void
@@ -112,7 +123,7 @@ final class WebMoreTest extends CIUnitTestCase
         $this->withSession($this->ownerSession)->post('app/password', $this->csrf(['current_password' => 'secret123', 'new_password' => 'newsecret1', 'confirm_password' => 'newsecret1']))->assertStatus(302);
         $this->assertTrue(password_verify('newsecret1', (new OwnerModel())->getOwner()['password_hash']));
 
-        $this->withSession($this->ownerSession)->get('app/more')->assertSee('Logout');
+        $this->withSession($this->ownerSession)->get('app/more')->assertSee('લોગઆઉટ');
         $out = $this->withSession($this->ownerSession)->post('logout', $this->csrf([]));
         $out->assertStatus(302);
         $this->assertStringContainsString('/login', (string) $out->getRedirectUrl());

@@ -33,7 +33,7 @@ class Auth extends BaseController
             $throttler = service('throttler');
 
             if ($throttler->check('login_' . md5($this->request->getIPAddress()), self::LOGIN_ATTEMPTS_PER_MINUTE, MINUTE) === false) {
-                return $this->fail('Too many login attempts. Try again in a minute.', 429);
+                return $this->fail(lang('App.api_too_many_logins'), 429);
             }
         }
 
@@ -51,7 +51,7 @@ class Auth extends BaseController
         $result = service('ownerAuth')->login($data['phone'], $data['password'], $data['device'] ?? null);
 
         if ($result === null) {
-            return $this->failUnauthorized('Phone number or password is incorrect.');
+            return $this->failUnauthorized(lang('App.login_wrong'));
         }
 
         return $this->respond([
@@ -128,7 +128,7 @@ class Auth extends BaseController
         $owner = $auth->owner();
 
         if (! password_verify($data['current_password'], (string) $owner['password_hash'])) {
-            return $this->failUnauthorized('Current password is incorrect.');
+            return $this->failUnauthorized(lang('App.password_wrong_current'));
         }
 
         (new OwnerModel())->update((int) $owner['id'], ['password_hash' => OwnerAuth::hashPassword($data['new_password'])]);
@@ -154,7 +154,7 @@ class Auth extends BaseController
         $row    = $tokens->where('owner_id', (int) $auth->owner()['id'])->find($id);
 
         if ($row === null) {
-            return $this->failNotFound('Token not found.');
+            return $this->failNotFound(lang('App.api_token_not_found'));
         }
 
         $tokens->revoke($id);

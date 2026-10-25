@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
-use App\Models\SettingModel;
+
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 
@@ -35,11 +35,10 @@ class WhatsappTest extends BaseCommand
             return EXIT_ERROR;
         }
 
-        $parlour = (string) (new SettingModel())->value('parlour_name', 'Beauty Parlour');
-        $text    = trim((string) ($params['text'] ?? CLI::getOption('text') ?? ''));
+        $text = trim((string) ($params['text'] ?? CLI::getOption('text') ?? ''));
 
         if ($text === '') {
-            $text = 'Test message from ' . $parlour . ' - WhatsApp auto-send is working.';
+            $text = service('whatsapp')->testMessage(); // Gujarati, with the parlour name
         }
 
         $bridge = service('whatsappBridge');

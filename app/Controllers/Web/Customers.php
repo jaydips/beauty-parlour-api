@@ -38,7 +38,7 @@ class Customers extends WebController
         $rows = $model->orderBy('name', 'ASC')->paginate(self::PER_PAGE, 'default', $page);
 
         return $this->render('web/customers/index', [
-            'title'     => 'Customers',
+            'title'     => lang('App.title_customers'),
             'q'         => $q,
             'customers' => $rows,
             'pager'     => $model->pager,
@@ -62,7 +62,7 @@ class Customers extends WebController
 
     public function create(): string
     {
-        return $this->render('web/customers/form', ['title' => 'નવો customer', 'customer' => null], 'customers');
+        return $this->render('web/customers/form', ['title' => lang('App.title_new_customer'), 'customer' => null], 'customers');
     }
 
     public function store(): RedirectResponse
@@ -82,7 +82,7 @@ class Customers extends WebController
                     return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
                 }
 
-                return redirect()->to(site_url('app/customers/' . $existing['id']))->with('success', 'જૂનો customer ફરી સક્રિય થયો.');
+                return redirect()->to(site_url('app/customers/' . $existing['id']))->with('success', lang('App.customer_restored'));
             }
         }
 
@@ -92,7 +92,7 @@ class Customers extends WebController
             return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
         }
 
-        return redirect()->to(site_url('app/customers/' . $id))->with('success', 'Customer ઉમેરાયો.');
+        return redirect()->to(site_url('app/customers/' . $id))->with('success', lang('App.customer_added'));
     }
 
     public function show(int $id): string|RedirectResponse
@@ -100,7 +100,7 @@ class Customers extends WebController
         $customer = (new CustomerModel())->find($id);
 
         if ($customer === null) {
-            return redirect()->to(site_url('app/customers'))->with('error', 'Customer મળ્યો નહીં.');
+            return redirect()->to(site_url('app/customers'))->with('error', lang('App.customer_not_found'));
         }
 
         $appointments = new AppointmentModel();
@@ -127,10 +127,10 @@ class Customers extends WebController
         $customer = (new CustomerModel())->find($id);
 
         if ($customer === null) {
-            return redirect()->to(site_url('app/customers'))->with('error', 'Customer મળ્યો નહીં.');
+            return redirect()->to(site_url('app/customers'))->with('error', lang('App.customer_not_found'));
         }
 
-        return $this->render('web/customers/form', ['title' => 'Customer સુધારો', 'customer' => $customer], 'customers');
+        return $this->render('web/customers/form', ['title' => lang('App.title_edit_customer'), 'customer' => $customer], 'customers');
     }
 
     public function update(int $id): RedirectResponse
@@ -138,7 +138,7 @@ class Customers extends WebController
         $model = new CustomerModel();
 
         if ($model->find($id) === null) {
-            return redirect()->to(site_url('app/customers'))->with('error', 'Customer મળ્યો નહીં.');
+            return redirect()->to(site_url('app/customers'))->with('error', lang('App.customer_not_found'));
         }
 
         $data       = $this->pick($this->input());
@@ -148,7 +148,7 @@ class Customers extends WebController
             return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
         }
 
-        return redirect()->to(site_url('app/customers/' . $id))->with('success', 'Customer સુધાર્યો.');
+        return redirect()->to(site_url('app/customers/' . $id))->with('success', lang('App.customer_updated'));
     }
 
     public function delete(int $id): RedirectResponse
@@ -156,12 +156,12 @@ class Customers extends WebController
         $model = new CustomerModel();
 
         if ($model->find($id) === null) {
-            return redirect()->to(site_url('app/customers'))->with('error', 'Customer મળ્યો નહીં.');
+            return redirect()->to(site_url('app/customers'))->with('error', lang('App.customer_not_found'));
         }
 
         $model->delete($id);
 
-        return redirect()->to(site_url('app/customers'))->with('success', 'Customer દૂર કર્યો (history સચવાયેલી છે).');
+        return redirect()->to(site_url('app/customers'))->with('success', lang('App.customer_deleted'));
     }
 
     /**

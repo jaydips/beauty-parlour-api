@@ -36,7 +36,7 @@ class Payments extends ApiController
     {
         $row = (new PaymentModel())->find($id);
 
-        return $row === null ? $this->failNotFound('Payment not found.') : $this->respond(['payment' => $this->attachCustomers([$row])[0]]);
+        return $row === null ? $this->failNotFound(lang('App.payment_not_found')) : $this->respond(['payment' => $this->attachCustomers([$row])[0]]);
     }
 
     public function create(): ResponseInterface
@@ -63,14 +63,14 @@ class Payments extends ApiController
             $appointment = (new AppointmentModel())->find((int) $data['appointment_id']);
 
             if ($appointment === null) {
-                return $this->failValidationErrors(['appointment_id' => 'Appointment not found.']);
+                return $this->failValidationErrors(['appointment_id' => lang('App.appointment_not_found')]);
             }
 
             $data['customer_id'] = (int) $appointment['customer_id'];
         } elseif (empty($data['customer_id'])) {
             return $this->failValidationErrors(['customer_id' => 'customer_id or appointment_id is required.']);
         } elseif ((new CustomerModel())->find((int) $data['customer_id']) === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer not found.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_not_found')]);
         }
 
         $model = new PaymentModel();
@@ -104,7 +104,7 @@ class Payments extends ApiController
         $model = new PaymentModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Payment not found.');
+            return $this->failNotFound(lang('App.payment_not_found'));
         }
 
         $model->delete($id);

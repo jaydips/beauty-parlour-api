@@ -132,6 +132,60 @@ class Outbox
     }
 
     /**
+     * Cancels the queued (not yet sent) outbox rows of an appointment: all of them, or only the
+     * given types. Used when an appointment is cancelled, completed or moved. Returns how many.
+     *
+     * @param list<string>|null $types e.g. ['booking', 'appointment']
+     */
+    public function cancelForAppointment(int $appointmentId, ?array $types = null): int
+    {
+        $query = $this->messages->where('appointment_id', $appointmentId)->where('status', 'queued');
+
+        if ($types !== null) {
+            $query->whereIn('type', $types);
+        }
+
+        $ids = array_map('intval', array_column($query->findAll(), 'id'));
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        $this->messages->builder()->whereIn('id', $ids)
+            ->update(['status' => 'cancelled', 'updated_at' => Time::now()->toDateTimeString()]);
+
+        return count($ids);
+    }
+
+    /**
+     * After the time or the services of an appointment changed: a booking confirmation that is still
+     * queued gets the new text (the customer must not receive the old date); one that was already sent
+     * is left alone. Nothing is queued here - that is enqueueBookingConfirmation()'s job at booking time.
+     */
+    public function refreshBookingConfirmation(int $appointmentId): void
+    {
+        $row = $this->messages->where('appointment_id', $appointmentId)->where('type', 'booking')->where('status', 'queued')->first();
+
+        if ($row === null) {
+            return;
+        }
+
+        $appointment = (new AppointmentModel())->find($appointmentId);
+        $customer    = $appointment ? $this->customers->find((int) $appointment['customer_id']) : null;
+
+        if ($appointment === null || $customer === null) {
+            $this->messages->cancel((int) $row['id']);
+
+            return;
+        }
+
+        $items = (new AppointmentServiceModel())->forAppointment($appointmentId);
+        $body  = service('whatsapp')->bookingMessage($customer, $appointment, $items);
+
+        $this->messages->update((int) $row['id'], ['body' => mb_substr($body, 0, 2000)]);
+    }
+
+    /**
      * Turns every due, pending reminder into an outbox row (once). Returns how many were queued.
      */
     public function enqueueDueReminders(Time $now): int
@@ -323,7 +377,7 @@ class Outbox
         $status = $bridge->status();
 
         if (! ($status['ok'] ?? false) || ! ($status['registered'] ?? false)) {
-            $summary['skipped']  = 'bridge_' . (string) ($status['error'] ?? 'not_linked');
+            $summary['skipped']  = 'bridge_' . preg_replace('/^bridge_/', '', (string) ($status['error'] ?? 'not_linked'));
             $summary['deferred'] = count($batch);
 
             return $summary;

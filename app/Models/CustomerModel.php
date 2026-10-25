@@ -36,10 +36,11 @@ class CustomerModel extends Model
         'whatsapp_opt_in' => 'permit_empty|in_list[0,1]',
     ];
 
+    // language keys: CodeIgniter passes custom messages through lang() (app/Language/gu/App.php)
     protected $validationMessages = [
         'phone' => [
-            'regex_match' => 'Phone must be exactly 10 digits without country code.',
-            'is_unique'   => 'A customer with this phone number already exists.',
+            'regex_match' => 'App.validation_phone_digits',
+            'is_unique'   => 'App.validation_phone_unique',
         ],
     ];
 

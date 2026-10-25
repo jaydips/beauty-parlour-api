@@ -25,8 +25,8 @@ class Login extends WebController
         }
 
         return view('web/login', [
-            'title'      => 'Login',
-            'parlour'    => (string) (new \App\Models\SettingModel())->value('parlour_name', 'Beauty Parlour'),
+            'title'      => lang('App.title_login'),
+            'parlour'    => (string) ((new \App\Models\SettingModel())->value('parlour_name') ?: lang('App.app_name')),
             'loggedOut'  => $this->request->getGet('out') !== null,
         ]);
     }
@@ -37,7 +37,7 @@ class Login extends WebController
             $throttler = service('throttler');
 
             if ($throttler->check('weblogin_' . md5($this->request->getIPAddress()), self::ATTEMPTS_PER_MINUTE, MINUTE) === false) {
-                return redirect()->back()->withInput()->with('error', 'ઘણા પ્રયાસ થયા. એક મિનિટ પછી ફરી કરો.');
+                return redirect()->back()->withInput()->with('error', lang('App.too_many_attempts'));
             }
         }
 
@@ -47,7 +47,7 @@ class Login extends WebController
         ];
 
         if (! $this->validateData($this->input(), $rules)) {
-            return redirect()->back()->withInput()->with('error', '10 અંકનો mobile નંબર અને password લખો.');
+            return redirect()->back()->withInput()->with('error', lang('App.login_enter_phone_password'));
         }
 
         $phone    = preg_replace('/\D+/', '', (string) $this->request->getPost('phone'));
@@ -56,7 +56,7 @@ class Login extends WebController
         $owner    = $owners->getOwner();
 
         if ($owner === null || $owner['phone'] !== $phone || empty($owner['password_hash']) || ! password_verify($password, $owner['password_hash'])) {
-            return redirect()->back()->withInput()->with('error', 'mobile નંબર અથવા password ખોટો છે.');
+            return redirect()->back()->withInput()->with('error', lang('App.login_wrong'));
         }
 
         $session = session();

@@ -164,6 +164,7 @@ function reply(res, code, body) {
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let data = '';
+    req.setEncoding('utf8'); // decode as one UTF-8 stream: a Gujarati character must not be split between chunks
     req.on('data', (chunk) => {
       data += chunk;
       if (data.length > 16_384) {

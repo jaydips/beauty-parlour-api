@@ -60,14 +60,14 @@ class SettingModel extends Model
     public static function validateValue(string $key, string $value): ?string
     {
         return match ($key) {
-            'country_code'                                         => preg_match('/^\d{1,3}$/', $value) ? null : 'Country code must be 1 to 3 digits.',
-            'parlour_phone'                                        => ($value === '' || preg_match('/^\d{10}$/', $value)) ? null : 'Phone must be 10 digits.',
-            'slot_minutes', 'reminder_lead_hours', 'followup_days' => ctype_digit($value) ? null : 'Must be a whole number (0 or more).',
-            'opening_hours'                                        => json_decode($value, true) !== null || $value === 'null' ? null : 'Must be valid JSON.',
-            'timezone'                                             => in_array($value, timezone_identifiers_list(), true) ? null : 'Unknown timezone.',
-            'wa_auto_send'                                         => in_array($value, ['0', '1'], true) ? null : 'Must be 0 or 1.',
-            'wa_send_from', 'wa_send_to'                           => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) ? null : 'Time must be HH:MM (24h).',
-            default                                                => mb_strlen($value) <= 2000 ? null : 'Too long (max 2000 characters).',
+            'country_code'                                         => preg_match('/^\d{1,3}$/', $value) ? null : lang('App.v_country_code'),
+            'parlour_phone'                                        => ($value === '' || preg_match('/^\d{10}$/', $value)) ? null : lang('App.v_phone_10'),
+            'slot_minutes', 'reminder_lead_hours', 'followup_days' => ctype_digit($value) ? null : lang('App.v_whole_number'),
+            'opening_hours'                                        => json_decode($value, true) !== null || $value === 'null' ? null : lang('App.v_json'),
+            'timezone'                                             => in_array($value, timezone_identifiers_list(), true) ? null : lang('App.v_timezone'),
+            'wa_auto_send'                                         => in_array($value, ['0', '1'], true) ? null : lang('App.v_zero_one'),
+            'wa_send_from', 'wa_send_to'                           => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) ? null : lang('App.v_time_hhmm'),
+            default                                                => mb_strlen($value) <= 2000 ? null : lang('App.v_too_long'),
         };
     }
 

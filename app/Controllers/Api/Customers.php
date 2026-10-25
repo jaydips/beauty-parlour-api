@@ -38,7 +38,7 @@ class Customers extends ApiController
         $customer = (new CustomerModel())->find($id);
 
         if ($customer === null) {
-            return $this->failNotFound('Customer not found.');
+            return $this->failNotFound(lang('App.customer_not_found'));
         }
 
         return $this->respond(['customer' => $customer + ['stats' => $this->stats($id)]]);
@@ -79,13 +79,13 @@ class Customers extends ApiController
         $model = new CustomerModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Customer not found.');
+            return $this->failNotFound(lang('App.customer_not_found'));
         }
 
         $data = $this->pick($this->input());
 
         if ($data === []) {
-            return $this->fail('Nothing to update.', 400);
+            return $this->fail(lang('App.api_nothing_to_update'), 400);
         }
 
         $data['id'] = $id; // lets the is_unique rule ignore this row
@@ -102,7 +102,7 @@ class Customers extends ApiController
         $model = new CustomerModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Customer not found.');
+            return $this->failNotFound(lang('App.customer_not_found'));
         }
 
         $model->delete($id);

@@ -39,7 +39,7 @@ final class WebUiTest extends CIUnitTestCase
     {
         $res = $this->get('login');
         $res->assertStatus(200);
-        $res->assertSee('Owner login');
+        $res->assertSee('માલિક લોગિન');
         $res->assertSee('name="password"', null);
         $res->assertSee('csrf_token', null);
     }
@@ -72,10 +72,10 @@ final class WebUiTest extends CIUnitTestCase
 
         $res = $this->withSession(['owner_id' => 1, 'owner_name' => 'Jalpa Patel'])->get('app');
         $res->assertStatus(200);
-        $res->assertSee('Dashboard');
-        $res->assertSee('My Beauty Parlour');
+        $res->assertSee('હોમ');
+        $res->assertSee('મારું બ્યુટી પાર્લર');
         $res->assertSee('Jalpa Patel');
-        $res->assertSee('WhatsApp reminders');
+        $res->assertSee('WhatsApp રિમાઇન્ડર');
     }
 
     public function testReminderSentButtonMarksReminder(): void

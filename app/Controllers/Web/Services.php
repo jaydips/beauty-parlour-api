@@ -19,12 +19,12 @@ class Services extends WebController
     {
         $rows = (new ServiceModel())->orderBy('is_active', 'DESC')->orderBy('sort_order', 'ASC')->orderBy('name', 'ASC')->findAll();
 
-        return $this->render('web/services/index', ['title' => 'Services', 'services' => $rows], 'more');
+        return $this->render('web/services/index', ['title' => lang('App.title_services'), 'services' => $rows], 'more');
     }
 
     public function create(): string
     {
-        return $this->render('web/services/form', ['title' => 'નવી service', 'service' => null], 'more');
+        return $this->render('web/services/form', ['title' => lang('App.title_new_service'), 'service' => null], 'more');
     }
 
     public function store(): RedirectResponse
@@ -36,7 +36,7 @@ class Services extends WebController
             return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
         }
 
-        return redirect()->to(site_url('app/services'))->with('success', 'Service ઉમેરાઈ.');
+        return redirect()->to(site_url('app/services'))->with('success', lang('App.service_added'));
     }
 
     public function edit(int $id): string|RedirectResponse
@@ -44,10 +44,10 @@ class Services extends WebController
         $service = (new ServiceModel())->find($id);
 
         if ($service === null) {
-            return redirect()->to(site_url('app/services'))->with('error', 'Service મળી નહીં.');
+            return redirect()->to(site_url('app/services'))->with('error', lang('App.service_not_found'));
         }
 
-        return $this->render('web/services/form', ['title' => 'Service સુધારો', 'service' => $service], 'more');
+        return $this->render('web/services/form', ['title' => lang('App.title_edit_service'), 'service' => $service], 'more');
     }
 
     public function update(int $id): RedirectResponse
@@ -55,14 +55,14 @@ class Services extends WebController
         $model = new ServiceModel();
 
         if ($model->find($id) === null) {
-            return redirect()->to(site_url('app/services'))->with('error', 'Service મળી નહીં.');
+            return redirect()->to(site_url('app/services'))->with('error', lang('App.service_not_found'));
         }
 
         if (! $model->update($id, $this->pick($this->input()))) {
             return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
         }
 
-        return redirect()->to(site_url('app/services'))->with('success', 'Service સુધારી.');
+        return redirect()->to(site_url('app/services'))->with('success', lang('App.service_updated'));
     }
 
     public function delete(int $id): RedirectResponse
@@ -70,12 +70,12 @@ class Services extends WebController
         $model = new ServiceModel();
 
         if ($model->find($id) === null) {
-            return redirect()->to(site_url('app/services'))->with('error', 'Service મળી નહીં.');
+            return redirect()->to(site_url('app/services'))->with('error', lang('App.service_not_found'));
         }
 
         $model->delete($id);
 
-        return redirect()->to(site_url('app/services'))->with('success', 'Service દૂર કરી (જૂની appointments માં નામ રહેશે).');
+        return redirect()->to(site_url('app/services'))->with('success', lang('App.service_deleted'));
     }
 
     /**

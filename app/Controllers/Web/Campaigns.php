@@ -23,7 +23,7 @@ class Campaigns extends WebController
     public function index(): string
     {
         return $this->render('web/campaigns/index', [
-            'title'     => 'Offers / broadcast',
+            'title'     => lang('App.title_campaigns'),
             'campaigns' => (new CampaignModel())->orderBy('id', 'DESC')->findAll(100),
         ], 'more');
     }
@@ -34,14 +34,15 @@ class Campaigns extends WebController
         $days   = max(1, min(3650, (int) ($this->request->getGet('days') ?: 90)));
 
         return $this->render('web/campaigns/form', [
-            'title'    => 'નવી offer / broadcast',
-            'days'     => $days,
-            'counts'   => [
+            'title'       => lang('App.title_new_campaign'),
+            'days'        => $days,
+            'counts'      => [
                 'all'      => count($outbox->recipients('all')),
                 'recent'   => count($outbox->recipients('recent', $days)),
                 'inactive' => count($outbox->recipients('inactive', $days)),
             ],
-            'autoSend' => $outbox->autoSendEnabled(),
+            'autoSend'    => $outbox->autoSendEnabled(),
+            'defaultBody' => service('whatsapp')->template('offer'),
         ], 'more');
     }
 
@@ -57,10 +58,10 @@ class Campaigns extends WebController
             $audience = 'all';
         }
         if ($title === '' || mb_strlen($title) > 120) {
-            return redirect()->back()->withInput()->with('error', 'Offer નું નામ લખો (120 અક્ષર સુધી).');
+            return redirect()->back()->withInput()->with('error', lang('App.offer_name_required'));
         }
         if ($body === '' || mb_strlen($body) > 2000) {
-            return redirect()->back()->withInput()->with('error', 'Message લખો (2000 અક્ષર સુધી).');
+            return redirect()->back()->withInput()->with('error', lang('App.message_required_2000'));
         }
 
         try {
@@ -69,10 +70,10 @@ class Campaigns extends WebController
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
-        $note = service('outbox')->autoSendEnabled() ? '' : ' Auto-send બંધ છે: WhatsApp page પરથી ચાલુ કરશો ત્યારે મોકલાશે.';
+        $note = service('outbox')->autoSendEnabled() ? '' : lang('App.campaign_auto_off_note');
 
         return redirect()->to(site_url('app/campaigns/' . $result['id']))
-            ->with('success', $result['recipients'] . ' customers માટે message કતારમાં મૂક્યા.' . $note);
+            ->with('success', lang('App.campaign_queued', [(int) $result['recipients']]) . $note);
     }
 
     public function show(int $id): string
@@ -96,11 +97,11 @@ class Campaigns extends WebController
     public function cancel(int $id): RedirectResponse
     {
         if ((new CampaignModel())->find($id) === null) {
-            return redirect()->to(site_url('app/campaigns'))->with('error', 'Campaign મળ્યું નહીં.');
+            return redirect()->to(site_url('app/campaigns'))->with('error', lang('App.campaign_not_found'));
         }
 
         $n = service('outbox')->cancelCampaign($id);
 
-        return redirect()->to(site_url('app/campaigns/' . $id))->with('success', "Campaign રદ: {$n} બાકી messages રદ થયા.");
+        return redirect()->to(site_url('app/campaigns/' . $id))->with('success', lang('App.campaign_cancelled', [$n]));
     }
 }

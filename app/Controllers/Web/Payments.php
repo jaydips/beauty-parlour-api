@@ -45,7 +45,7 @@ class Payments extends WebController
         }
 
         return $this->render('web/payments/index', [
-            'title'    => 'Payments',
+            'title'    => lang('App.title_payments'),
             'from'     => $from,
             'to'       => $to,
             'payments' => $rows,
@@ -72,17 +72,17 @@ class Payments extends WebController
         if ($appointment !== null) {
             $customerId = (int) $appointment['customer_id'];
         } elseif ($appointmentId > 0) {
-            return $this->back('app')->with('error', 'Appointment મળી નહીં.');
+            return $this->back('app')->with('error', lang('App.appointment_not_found'));
         }
 
         if ($customerId <= 0 || (new CustomerModel())->find($customerId) === null) {
-            return $this->back('app')->with('error', 'Customer મળ્યો નહીં.');
+            return $this->back('app')->with('error', lang('App.customer_not_found'));
         }
         if ($amount <= 0) {
-            return $this->back('app')->with('error', 'રકમ 1 કે વધુ હોવી જોઈએ.');
+            return $this->back('app')->with('error', lang('App.amount_min'));
         }
         if (! in_array($method, PaymentModel::METHODS, true)) {
-            return $this->back('app')->with('error', 'Payment method ખોટી છે.');
+            return $this->back('app')->with('error', lang('App.payment_method_invalid'));
         }
 
         $model = new PaymentModel();
@@ -103,7 +103,7 @@ class Payments extends WebController
 
         $target = $appointment ? 'app/appointments/' . $appointment['id'] : 'app/customers/' . $customerId;
 
-        return redirect()->to(site_url($target))->with('success', ($type === 'refund' ? 'Refund' : 'Payment') . ' ' . rupees($amount) . ' નોંધાયું.');
+        return redirect()->to(site_url($target))->with('success', lang('App.payment_recorded', [$type === 'refund' ? lang('App.refund') : lang('App.payment'), rupees($amount)]));
     }
 
     public function delete(int $id): RedirectResponse
@@ -112,13 +112,13 @@ class Payments extends WebController
         $payment = $model->find($id);
 
         if ($payment === null) {
-            return $this->back('app')->with('error', 'Payment મળ્યું નહીં.');
+            return $this->back('app')->with('error', lang('App.payment_not_found'));
         }
 
         $model->delete($id);
 
         $target = $payment['appointment_id'] ? 'app/appointments/' . $payment['appointment_id'] : 'app/customers/' . $payment['customer_id'];
 
-        return redirect()->to(site_url($target))->with('success', 'Payment દૂર કર્યું.');
+        return redirect()->to(site_url($target))->with('success', lang('App.payment_deleted'));
     }
 }

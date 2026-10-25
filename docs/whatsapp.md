@@ -16,6 +16,19 @@ block numbers that send bulk or unwanted messages. Therefore:
   (default 09:00–21:00);
 - the whole feature stays **off** until the owner switches `wa_auto_send` on in the app.
 
+**Owner's guide (Gujarati):** [whatsapp-owner-guide.gu.md](whatsapp-owner-guide.gu.md): pairing the
+number, send window, switching on, reading the outbox. The same steps are shown on the app's
+*ઑટો WhatsApp* page under "ઑટો WhatsApp ચાલુ કરવાનાં પગલાં".
+
+**Language (2026-10-25).** Every message template defaults to Gujarati (`SettingsSeeder`), with
+`{date}` rendered as "શનિવાર, 25 ઑક્ટોબર 2026" and `{time}` as "સવારે 10:30" (`format_helper.php`:
+`gu_date()`, `gu_time()`). Migration `2026-10-25-100001` converts an existing installation: it
+replaces a template only while its value is still the old English default, so edited templates
+survive. Text is UTF-8 end to end: SQLite stores it as is, the MySQL config uses `utf8mb4`
+(`app/Config/Database.php`; an emoji in a template needs that too), `wa.me` links percent-encode
+the UTF-8 bytes (`rawurlencode`), and the bridge receives JSON (`\uXXXX` escapes) and reads the
+request body as one UTF-8 stream.
+
 ## 1. How it fits together
 
 ```
@@ -34,12 +47,19 @@ owner's app / web UI ──► beauty-parlour-api (PHP)  ──HTTP 127.0.0.1:33
 | `Config\WhatsApp` | `app/Config/WhatsApp.php` | bridge URL/key (from `.env`), pacing limits |
 | Web UI | `/app/whatsapp`, `/app/whatsapp/messages`, `/app/campaigns` | link the number, switch auto-send, test, outbox, offers |
 | JSON API | `GET /whatsapp/status`, `POST /whatsapp/pair`, `/whatsapp/logout`, `/whatsapp/test`, `/messages…`, `/campaigns…` | same for the Flutter app (see `docs/api.md`) |
-| Settings | `wa_auto_send` (0/1), `wa_send_from`, `wa_send_to`, `tpl_whatsapp_booking` | owner-editable |
+| Settings | `wa_auto_send` (0/1), `wa_send_from`, `wa_send_to`, `tpl_whatsapp_booking`, `tpl_whatsapp_offer` | owner-editable; the switch, the window and the bridge link state are also on `/app/settings` ("નવી બુકિંગ પર ઑટો WhatsApp") |
 
 What gets queued, and when:
 
 - **Booking confirmation**: when an appointment is created (web, API) and the customer opted in,
-  one `booking` message (template `tpl_whatsapp_booking`). Idempotent per appointment.
+  one `booking` message (template `tpl_whatsapp_booking`), scheduled "now" (so it leaves with the
+  next cron run inside the send window). Idempotent per appointment. The web UI confirms it in the
+  flash message ("WhatsApp કન્ફર્મેશન કતારમાં મૂક્યું"). Follow-ups on the appointment
+  (`AppointmentService` → `Outbox::cancelForAppointment()` / `refreshBookingConfirmation()`):
+  changing the time or the services rewrites a confirmation that is still queued and drops a
+  queued reminder for the old slot; cancelling or marking no-show cancels every queued message of
+  the appointment; completing it cancels a queued confirmation/reminder. Sent messages are never
+  touched, and nothing is queued retroactively when the switch is turned on later.
 - **Reminders**: every pending reminder whose `due_at` has passed (appointment reminders created at
   booking time, follow-ups and birthdays created by `spark reminders:generate`) becomes one message
   the first time `whatsapp:send` sees it. When the bridge confirms delivery the reminder is marked
@@ -89,11 +109,12 @@ other apps); the bridge is started by a cron watchdog, not by Passenger.
    and `bridge.log`. After a deploy that changes the bridge code, create an empty file
    `whatsapp-bridge/.restart` (File Manager); the next watchdog run restarts the process and keeps
    the WhatsApp session.
-6. **Link the number** in the app: *More » WhatsApp auto-send* (`/app/whatsapp`). Enter the
+6. **Link the number** in the app: *વધુ » ઑટો WhatsApp* (`/app/whatsapp`). Enter the
    parlour's WhatsApp mobile, tap *Pairing code*, then on that phone: WhatsApp » Settings » Linked
    devices » Link a device » *Link with phone number instead* » type the 8-character code. A QR code
    is shown as well for linking from a second device. When the page shows *જોડાયેલ* (connected),
-   send a test message to the owner's number, then switch **Auto-send** on.
+   send a test message to the owner's number, then switch **ઑટો WhatsApp** on (same page, or the
+   checkbox at the top of *સેટિંગ્સ*).
 
 Checks: `GET https://<host>/whatsapp/status` (bearer token) or the web page shows the bridge state;
 `tmp/cron-whatsapp.log` shows one line per minute like
@@ -108,9 +129,9 @@ php spark whatsapp:test --to 98XXXXXXXX           # sends one real message immed
 
 ## 3. Operations
 
-- **Re-link**: if the phone unlinks the device (or WhatsApp logs it out) the page shows *Link બાકી*
+- **Re-link**: if the phone unlinks the device (or WhatsApp logs it out) the page shows *નંબર જોડવો બાકી*
   again; queued messages wait (`deferred`), nothing is lost.
-- **Stop sending**: switch Auto-send off (messages stay queued) or cancel individual queued messages
+- **Stop sending**: switch ઑટો WhatsApp off (messages stay queued) or cancel individual queued messages
   / a whole campaign from the outbox.
 - **Failed messages** carry `last_error`; *ફરી મોકલો* (retry) puts them back in the queue.
 - **Logs**: `whatsapp-bridge/bridge.log` (pino, level `warn`), `whatsapp-bridge/watchdog.log`,

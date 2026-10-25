@@ -57,7 +57,7 @@ class Appointments extends ApiController
     {
         $row = service('appointments')->withDetails($id);
 
-        return $row === null ? $this->failNotFound('Appointment not found.') : $this->respond(['appointment' => $row]);
+        return $row === null ? $this->failNotFound(lang('App.appointment_not_found')) : $this->respond(['appointment' => $row]);
     }
 
     public function create(): ResponseInterface
@@ -78,7 +78,7 @@ class Appointments extends ApiController
         }
 
         if ((new CustomerModel())->find((int) $data['customer_id']) === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer not found.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_not_found')]);
         }
 
         $svc = service('appointments');
@@ -95,7 +95,7 @@ class Appointments extends ApiController
             $conflicts = $svc->conflicts($data['starts_at'], $endsAt);
 
             if ($conflicts !== []) {
-                return $this->fail(['message' => 'The slot overlaps other appointments. Send force=true to book anyway.', 'conflicts' => $svc->attachRelations($conflicts)], 409);
+                return $this->fail(['message' => lang('App.api_slot_overlaps'), 'conflicts' => $svc->attachRelations($conflicts)], 409);
             }
         }
 
@@ -114,7 +114,7 @@ class Appointments extends ApiController
         $current = (new AppointmentModel())->find($id);
 
         if ($current === null) {
-            return $this->failNotFound('Appointment not found.');
+            return $this->failNotFound(lang('App.appointment_not_found'));
         }
 
         $data  = $this->input();
@@ -131,7 +131,7 @@ class Appointments extends ApiController
         }
 
         if (! empty($data['customer_id']) && (new CustomerModel())->find((int) $data['customer_id']) === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer not found.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_not_found')]);
         }
 
         $itemsInput = array_key_exists('items', $data) && is_array($data['items']) ? $data['items'] : null;
@@ -145,7 +145,7 @@ class Appointments extends ApiController
                 $conflicts = $svc->conflicts($startsAt, $endsAt, $id);
 
                 if ($conflicts !== []) {
-                    return $this->fail(['message' => 'The slot overlaps other appointments. Send force=true to save anyway.', 'conflicts' => $svc->attachRelations($conflicts)], 409);
+                    return $this->fail(['message' => lang('App.api_slot_overlaps_save'), 'conflicts' => $svc->attachRelations($conflicts)], 409);
                 }
             }
 
@@ -185,7 +185,7 @@ class Appointments extends ApiController
     public function delete(int $id): ResponseInterface
     {
         if ((new AppointmentModel())->find($id) === null) {
-            return $this->failNotFound('Appointment not found.');
+            return $this->failNotFound(lang('App.appointment_not_found'));
         }
 
         try {

@@ -18,12 +18,12 @@ class More extends WebController
 {
     public function index(): string
     {
-        return $this->render('web/more', ['title' => 'વધુ'], 'more');
+        return $this->render('web/more', ['title' => lang('App.title_more')], 'more');
     }
 
     public function password(): string
     {
-        return $this->render('web/password', ['title' => 'Password બદલો'], 'more');
+        return $this->render('web/password', ['title' => lang('App.title_password')], 'more');
     }
 
     public function updatePassword(): RedirectResponse
@@ -33,22 +33,22 @@ class More extends WebController
         $confirm = (string) $this->request->getPost('confirm_password');
 
         if (mb_strlen($new) < 8) {
-            return redirect()->back()->with('error', 'નવો password ઓછામાં ઓછો 8 અક્ષરનો હોવો જોઈએ.');
+            return redirect()->back()->with('error', lang('App.password_min'));
         }
         if ($new !== $confirm) {
-            return redirect()->back()->with('error', 'નવો password બંને વાર એકસરખો લખો.');
+            return redirect()->back()->with('error', lang('App.password_mismatch'));
         }
 
         $owners = new OwnerModel();
         $owner  = $owners->getOwner();
 
         if ($owner === null || ! password_verify($current, (string) $owner['password_hash'])) {
-            return redirect()->back()->with('error', 'હાલનો password ખોટો છે.');
+            return redirect()->back()->with('error', lang('App.password_wrong_current'));
         }
 
         $owners->update((int) $owner['id'], ['password_hash' => OwnerAuth::hashPassword($new)]);
         (new AuthTokenModel())->revokeAllForOwner((int) $owner['id']); // app logins must sign in again
 
-        return redirect()->to(site_url('app/more'))->with('success', 'Password બદલાયો. App માં ફરી login કરવું પડશે.');
+        return redirect()->to(site_url('app/more'))->with('success', lang('App.password_changed'));
     }
 }

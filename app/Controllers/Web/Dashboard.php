@@ -22,7 +22,7 @@ class Dashboard extends WebController
         $day = Time::parse($date);
 
         return $this->render('web/dashboard', [
-            'title' => 'Dashboard',
+            'title' => lang('App.title_dashboard'),
             'date'  => $date,
             'prev'  => $day->subDays(1)->toDateString(),
             'next'  => $day->addDays(1)->toDateString(),

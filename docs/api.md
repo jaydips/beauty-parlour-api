@@ -56,8 +56,16 @@ Unknown routes: `404 {"status":404,"error":"Not Found"}`.
 - `GET /settings` -> `{settings: {key: value}, editable_keys: [...]}`
 - `PUT /settings` with any subset of keys: `parlour_name`, `parlour_phone`, `parlour_address`,
   `country_code`, `currency`, `timezone`, `opening_hours` (JSON), `slot_minutes`,
-  `reminder_lead_hours`, `followup_days`, `tpl_whatsapp_reminder`, `tpl_whatsapp_followup`,
-  `tpl_whatsapp_birthday`. Templates accept `{customer_name} {parlour_name} {date} {time} {services}`.
+  `reminder_lead_hours`, `followup_days`, `tpl_whatsapp_booking`, `tpl_whatsapp_reminder`,
+  `tpl_whatsapp_followup`, `tpl_whatsapp_birthday`, `tpl_whatsapp_offer`, `wa_auto_send` (`"0"`/`"1"`),
+  `wa_send_from`, `wa_send_to` (`HH:MM`). Templates accept `{customer_name} {parlour_name} {date}
+  {time} {services}`; their defaults are Gujarati and `{date}`/`{time}` render in Gujarati
+  ("શનિવાર, 25 ઑક્ટોબર 2026", "સવારે 10:30"). Setting a template to an empty string makes the
+  backend fall back to the Gujarati default.
+
+Language of messages (2026-10-25): the backend's default locale is `gu`, so every human-readable
+`message`/`messages` text in error responses (validation, not found, conflicts, login errors) is
+Gujarati. Keys, enum values (`scheduled`, `cash`, `queued`, …), dates and numbers are unchanged.
 
 ## Services (price list)
 
@@ -154,7 +162,7 @@ Everything here needs the bearer token. The switch is a setting: `PUT /settings 
 | POST | `/messages/{id}/retry` | | failed/cancelled → queued now (409 otherwise) |
 | POST | `/messages/{id}/cancel` | | queued → cancelled (409 otherwise) |
 | GET | `/campaigns` | `page=` | offer broadcasts |
-| GET | `/campaigns/preview` | `audience=all|recent|inactive` `days=90` | recipient count and a 5-name sample |
+| GET | `/campaigns/preview` | `audience=all|recent|inactive` `days=90` | recipient count, a 5-name sample, `auto_send`, and `default_body` (the `tpl_whatsapp_offer` template to prefill the form) |
 | POST | `/campaigns` | `{title, body, audience?, days?}` | creates the campaign and one queued message per opted-in recipient (201); body placeholders `{customer_name}` `{parlour_name}` |
 | GET | `/campaigns/{id}` | | campaign, `counts`, per-recipient `messages` |
 | POST | `/campaigns/{id}/cancel` | | cancels the queued messages |

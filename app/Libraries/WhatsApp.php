@@ -9,8 +9,13 @@ use App\Models\SettingModel;
 use CodeIgniter\I18n\Time;
 
 /**
- * Manual click-to-chat only: builds https://wa.me links and renders message templates.
- * Nothing here sends a message; the owner taps the link in the app and sends from their own WhatsApp.
+ * Message templates and click-to-chat links.
+ *
+ * Renders the owner's WhatsApp templates (settings tpl_whatsapp_*, Gujarati by default) and builds
+ * https://wa.me links for the manual flow. Nothing here sends a message: the manual flow opens the
+ * link in the owner's own WhatsApp, the automatic flow (Outbox) stores the rendered text in the
+ * outbox for `spark whatsapp:send`. Placeholders: {customer_name} {parlour_name} {date} {time}
+ * {services}; {date} and {time} are Gujarati ("શનિવાર, 25 ઑક્ટોબર 2026", "સવારે 10:30").
  */
 class WhatsApp
 {
@@ -20,6 +25,7 @@ class WhatsApp
 
     /**
      * wa.me link for a 10-digit local number, using settings.country_code (default 91).
+     * rawurlencode() percent-encodes the UTF-8 bytes, so Gujarati text survives the round trip.
      */
     public function link(string $phone, string $message): string
     {
@@ -48,7 +54,7 @@ class WhatsApp
     }
 
     /**
-     * Template text for a reminder type from settings (seeded defaults as fallback).
+     * Template text for a message type from settings (seeded defaults as fallback).
      */
     public function template(string $type): string
     {
@@ -57,6 +63,7 @@ class WhatsApp
             'follow_up'   => 'tpl_whatsapp_followup',
             'birthday'    => 'tpl_whatsapp_birthday',
             'booking'     => 'tpl_whatsapp_booking',
+            'offer'       => 'tpl_whatsapp_offer',
             default       => null,
         };
 
@@ -64,7 +71,9 @@ class WhatsApp
             return '{message}';
         }
 
-        return (string) ($this->settings->value($key) ?? SettingsSeeder::DEFAULTS[$key]);
+        $value = $this->settings->value($key);
+
+        return $value !== null && trim($value) !== '' ? $value : SettingsSeeder::DEFAULTS[$key];
     }
 
     /**
@@ -76,7 +85,28 @@ class WhatsApp
     {
         return [
             'customer_name' => (string) ($customer['name'] ?? ''),
-            'parlour_name'  => (string) ($this->settings->value('parlour_name') ?? SettingsSeeder::DEFAULTS['parlour_name']),
+            'parlour_name'  => (string) ($this->settings->value('parlour_name') ?: SettingsSeeder::DEFAULTS['parlour_name']),
+        ];
+    }
+
+    /**
+     * {date}, {time} and {services} for an appointment, in Gujarati.
+     *
+     * @param list<array<string, mixed>> $items
+     *
+     * @return array<string, string>
+     */
+    public function appointmentVars(array $appointment, array $items): array
+    {
+        helper('format');
+
+        $starts   = Time::parse((string) $appointment['starts_at']);
+        $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
+
+        return [
+            'date'     => gu_date($starts, true, true),
+            'time'     => gu_time($starts),
+            'services' => $services !== '' ? $services : lang('App.services_fallback'),
         ];
     }
 
@@ -87,31 +117,17 @@ class WhatsApp
      */
     public function appointmentMessage(array $customer, array $appointment, array $items): string
     {
-        $starts   = Time::parse($appointment['starts_at']);
-        $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
-
-        return $this->render($this->template('appointment'), $this->baseVars($customer) + [
-            'date'     => $starts->format('d M Y'),
-            'time'     => $starts->format('h:i A'),
-            'services' => $services !== '' ? $services : 'your appointment',
-        ]);
+        return $this->render($this->template('appointment'), $this->baseVars($customer) + $this->appointmentVars($appointment, $items));
     }
 
     /**
-     * "Your appointment is booked" confirmation sent right after a booking (automatic sending only).
+     * "Your appointment is booked" confirmation queued right after a booking (automatic sending only).
      *
      * @param list<array<string, mixed>> $items
      */
     public function bookingMessage(array $customer, array $appointment, array $items): string
     {
-        $starts   = Time::parse($appointment['starts_at']);
-        $services = implode(', ', array_map(static fn (array $i): string => (string) $i['service_name'], $items));
-
-        return $this->render($this->template('booking'), $this->baseVars($customer) + [
-            'date'     => $starts->format('d M Y'),
-            'time'     => $starts->format('h:i A'),
-            'services' => $services !== '' ? $services : 'your appointment',
-        ]);
+        return $this->render($this->template('booking'), $this->baseVars($customer) + $this->appointmentVars($appointment, $items));
     }
 
     public function followUpMessage(array $customer): string
@@ -122,5 +138,13 @@ class WhatsApp
     public function birthdayMessage(array $customer): string
     {
         return $this->render($this->template('birthday'), $this->baseVars($customer));
+    }
+
+    /**
+     * One-line text for the "test message" button and `spark whatsapp:test`.
+     */
+    public function testMessage(): string
+    {
+        return lang('App.test_message_text', [$this->baseVars([])['parlour_name']]);
     }
 }

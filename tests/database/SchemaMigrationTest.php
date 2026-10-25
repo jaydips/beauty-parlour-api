@@ -48,6 +48,36 @@ final class SchemaMigrationTest extends CIUnitTestCase
         $this->assertSame(count(SettingsSeeder::DEFAULTS), $after);
     }
 
+    public function testGujaratiTemplateMigrationReplacesOnlyUntouchedEnglishDefaults(): void
+    {
+        require_once APPPATH . 'Database/Migrations/2026-10-25-100001_GujaratiTemplateDefaults.php';
+
+        $english   = \App\Database\Migrations\GujaratiTemplateDefaults::REPLACEMENTS;
+        $settings  = $this->db->table('settings');
+        $customised = 'Hello {customer_name}, see you at {parlour_name}!';
+
+        // an existing installation: three untouched English defaults, one template the owner edited
+        $settings->where('key', 'tpl_whatsapp_booking')->update(['value' => $english['tpl_whatsapp_booking'][0]]);
+        $settings->where('key', 'tpl_whatsapp_reminder')->update(['value' => $english['tpl_whatsapp_reminder'][0]]);
+        $settings->where('key', 'tpl_whatsapp_birthday')->update(['value' => $english['tpl_whatsapp_birthday'][0]]);
+        $settings->where('key', 'tpl_whatsapp_followup')->update(['value' => $customised]);
+
+        $migration = new \App\Database\Migrations\GujaratiTemplateDefaults(\Config\Database::forge($this->db));
+        $migration->up();
+
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_booking', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_booking']]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_reminder', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_reminder']]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_birthday']]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_followup', 'value' => $customised]);
+
+        // running it again changes nothing; down() restores the English texts it replaced
+        $migration->up();
+        $this->assertSame(1, $settings->where('value', $customised)->countAllResults());
+        $migration->down();
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_booking', 'value' => $english['tpl_whatsapp_booking'][0]]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_followup', 'value' => $customised]);
+    }
+
     public function testCustomerPhoneIsUnique(): void
     {
         $this->insertCustomer('9876543210');

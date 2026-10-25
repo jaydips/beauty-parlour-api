@@ -53,7 +53,7 @@ class Reminders extends ApiController
     {
         $row = (new ReminderModel())->find($id);
 
-        return $row === null ? $this->failNotFound('Reminder not found.') : $this->respond(['reminder' => $this->decorate([$row])[0]]);
+        return $row === null ? $this->failNotFound(lang('App.reminder_not_found')) : $this->respond(['reminder' => $this->decorate([$row])[0]]);
     }
 
     public function create(): ResponseInterface
@@ -71,7 +71,7 @@ class Reminders extends ApiController
         }
 
         if ((new CustomerModel())->find((int) $data['customer_id']) === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer not found.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_not_found')]);
         }
 
         $model = new ReminderModel();
@@ -114,7 +114,7 @@ class Reminders extends ApiController
         $model = new ReminderModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Reminder not found.');
+            return $this->failNotFound(lang('App.reminder_not_found'));
         }
 
         if ($status === 'sent') {

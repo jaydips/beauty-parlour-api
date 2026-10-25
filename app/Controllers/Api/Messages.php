@@ -50,7 +50,7 @@ class Messages extends ApiController
     {
         $row = (new MessageModel())->find($id);
 
-        return $row === null ? $this->failNotFound('Message not found.') : $this->respond(['message' => service('outbox')->decorate([$row])[0]]);
+        return $row === null ? $this->failNotFound(lang('App.message_not_found')) : $this->respond(['message' => service('outbox')->decorate([$row])[0]]);
     }
 
     public function create(): ResponseInterface
@@ -69,13 +69,13 @@ class Messages extends ApiController
         $customer = (new CustomerModel())->find((int) $data['customer_id']);
 
         if ($customer === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer not found.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_not_found')]);
         }
 
         $id = service('outbox')->enqueue($customer, 'custom', (string) $data['body'], [], ! empty($data['scheduled_at']) ? (string) $data['scheduled_at'] : null);
 
         if ($id === null) {
-            return $this->failValidationErrors(['customer_id' => 'Customer has no usable 10-digit phone.']);
+            return $this->failValidationErrors(['customer_id' => lang('App.customer_no_phone')]);
         }
 
         return $this->respondCreated([
@@ -90,10 +90,10 @@ class Messages extends ApiController
         $row   = $model->find($id);
 
         if ($row === null) {
-            return $this->failNotFound('Message not found.');
+            return $this->failNotFound(lang('App.message_not_found'));
         }
         if (! in_array($row['status'], ['failed', 'cancelled'], true)) {
-            return $this->fail('Only failed or cancelled messages can be retried.', 409);
+            return $this->fail(lang('App.retry_only_failed'), 409);
         }
 
         $model->requeue($id);
@@ -107,10 +107,10 @@ class Messages extends ApiController
         $row   = $model->find($id);
 
         if ($row === null) {
-            return $this->failNotFound('Message not found.');
+            return $this->failNotFound(lang('App.message_not_found'));
         }
         if ($row['status'] !== 'queued') {
-            return $this->fail('Only queued messages can be cancelled.', 409);
+            return $this->fail(lang('App.cancel_only_queued'), 409);
         }
 
         $model->cancel($id);

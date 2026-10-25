@@ -51,14 +51,14 @@ class AppointmentService
     public function buildItems(array $input): array
     {
         if ($input === []) {
-            throw new InvalidArgumentException('At least one service item is required.');
+            throw new InvalidArgumentException(lang('App.items_required'));
         }
 
         $rows = [];
 
         foreach (array_values($input) as $i => $item) {
             if (! is_array($item)) {
-                throw new InvalidArgumentException("Item {$i} must be an object.");
+                throw new InvalidArgumentException(lang('App.item_must_be_object', [$i]));
             }
 
             $quantity = max(1, (int) ($item['quantity'] ?? 1));
@@ -67,7 +67,7 @@ class AppointmentService
                 $service = $this->services->withDeleted()->find((int) $item['service_id']);
 
                 if ($service === null) {
-                    throw new InvalidArgumentException("Item {$i}: service {$item['service_id']} does not exist.");
+                    throw new InvalidArgumentException(lang('App.item_service_missing', [$i, (string) $item['service_id']]));
                 }
 
                 $rows[] = [
@@ -84,7 +84,7 @@ class AppointmentService
             $name = trim((string) ($item['service_name'] ?? ''));
 
             if ($name === '' || ! isset($item['price'])) {
-                throw new InvalidArgumentException("Item {$i}: service_id, or service_name and price, is required.");
+                throw new InvalidArgumentException(lang('App.item_fields_required', [$i]));
             }
 
             $rows[] = [
@@ -190,7 +190,7 @@ class AppointmentService
         $current = $this->appointments->find($id);
 
         if ($current === null) {
-            throw new InvalidArgumentException('Appointment not found.');
+            throw new InvalidArgumentException(lang('App.appointment_not_found'));
         }
 
         $items    = $itemsInput !== null ? $this->buildItems($itemsInput) : $this->items->forAppointment($id);
@@ -229,6 +229,12 @@ class AppointmentService
         if ($startsAt !== $current['starts_at'] || $itemsInput !== null) {
             $this->reminders->where('appointment_id', $id)->where('type', 'appointment')->where('status', 'pending')->delete();
             $this->scheduleAppointmentReminder($id);
+
+            // outbox: a queued reminder carries the old text -> drop it (the new reminder is queued when due);
+            // a queued booking confirmation gets the new date/services before it goes out
+            $outbox = service('outbox');
+            $outbox->cancelForAppointment($id, ['appointment']);
+            $outbox->refreshBookingConfirmation($id);
         }
 
         $db->transComplete();
@@ -240,13 +246,13 @@ class AppointmentService
     public function changeStatus(int $id, string $status, ?string $reason = null): void
     {
         if (! in_array($status, AppointmentModel::STATUSES, true)) {
-            throw new InvalidArgumentException('Unknown status.');
+            throw new InvalidArgumentException(lang('App.unknown_status'));
         }
 
         $current = $this->appointments->find($id);
 
         if ($current === null) {
-            throw new InvalidArgumentException('Appointment not found.');
+            throw new InvalidArgumentException(lang('App.appointment_not_found'));
         }
 
         $row = ['status' => $status];
@@ -269,11 +275,14 @@ class AppointmentService
         if (in_array($status, [AppointmentModel::STATUS_CANCELLED, AppointmentModel::STATUS_NO_SHOW], true)) {
             $this->reminders->builder()->where('appointment_id', $id)->where('status', 'pending')
                 ->update(['status' => 'cancelled', 'updated_at' => $stamp]);
+            // nothing queued for this appointment (booking confirmation, reminder) may still go out
+            service('outbox')->cancelForAppointment($id);
         }
 
         if ($status === AppointmentModel::STATUS_COMPLETED) {
             $this->reminders->builder()->where('appointment_id', $id)->where('type', 'appointment')->where('status', 'pending')
                 ->update(['status' => 'skipped', 'updated_at' => $stamp]);
+            service('outbox')->cancelForAppointment($id, ['booking', 'appointment']);
             $this->scheduleFollowUp($id);
         }
 
@@ -286,7 +295,7 @@ class AppointmentService
     public function delete(int $id): bool
     {
         if ($this->payments->where('appointment_id', $id)->countAllResults() > 0) {
-            throw new InvalidArgumentException('Appointment has payments; cancel it instead of deleting.');
+            throw new InvalidArgumentException(lang('App.appointment_has_payments'));
         }
 
         return $this->appointments->delete($id);

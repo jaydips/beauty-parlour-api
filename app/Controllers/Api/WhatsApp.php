@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Api;
 
 use App\Models\MessageModel;
-use App\Models\SettingModel;
+
 use CodeIgniter\HTTP\ResponseInterface;
 
 /**
@@ -76,8 +76,7 @@ class WhatsApp extends ApiController
             return $this->validationFailure();
         }
 
-        $parlour = (string) (new SettingModel())->value('parlour_name', 'Beauty Parlour');
-        $result  = service('whatsappBridge')->send((string) $data['phone'], 'Test message from ' . $parlour . ' - WhatsApp auto-send is working.');
+        $result = service('whatsappBridge')->send((string) $data['phone'], service('whatsapp')->testMessage());
 
         return ($result['ok'] ?? false)
             ? $this->respond(['ok' => true, 'id' => $result['id'] ?? null])

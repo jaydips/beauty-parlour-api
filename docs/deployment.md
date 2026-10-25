@@ -149,6 +149,26 @@ check that the page is styled; an unstyled page means the assets were not copied
 4. Set `install.key` in `.env`, call `/install/migrate`, comment the key out again.
 5. Check `/api/health`.
 
+### Release 2026-10-25: Gujarati UI and templates, auto WhatsApp on booking
+
+What changes on the server with this release, in addition to the steps above:
+
+- `/install/migrate` runs migration `2026-10-25-100001_GujaratiTemplateDefaults` (plain `UPDATE`s,
+  fine on SQLite 3.7.17 and MySQL) and the seeder adds the new `tpl_whatsapp_offer` key. Templates
+  the owner already edited are kept; the four English defaults become Gujarati. `GET /install/status`
+  must list the migration under `applied` afterwards.
+- `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
+  `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
+  does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only
+  gained a `setEncoding('utf8')` line; create `whatsapp-bridge/.restart` once so the watchdog
+  restarts it, the WhatsApp session is kept).
+- After the deploy open `https://<host>/login`: the login page, the dashboard and *વધુ → સેટિંગ્સ*
+  (card "નવી બુકિંગ પર ઑટો WhatsApp" at the top) must be Gujarati. `wa_auto_send` keeps its
+  current value (still `0` unless the owner switched it on).
+- Verified locally before release: 46 PHPUnit tests, all 13 migrations plus the seeder on a fresh
+  MySQL 8.4 database (`utf8mb4_unicode_ci`, Gujarati rows read back intact) and on the local
+  SQLite file (English defaults replaced, edited template untouched).
+
 ## 9. Cron jobs: database backup and daily reminders
 
 Two `spark` commands are meant to run from cPanel » **Cron Jobs** (the account has no SSH, so cron

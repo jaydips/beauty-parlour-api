@@ -163,3 +163,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 @media (min-width: 600px) {
   .stats { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* owner guide on the WhatsApp page and section headings on the settings form */
+details.guide summary { cursor: pointer; list-style: none; }
+details.guide summary::-webkit-details-marker { display: none; }
+details.guide summary::after { content: " ›"; color: var(--muted); }
+details.guide[open] summary::after { content: " ⌄"; }
+details.guide ol { margin: 10px 0 0; padding-left: 20px; }
+details.guide li { margin: 6px 0; line-height: 1.45; }
+form h2 { margin: 18px 0 6px; }

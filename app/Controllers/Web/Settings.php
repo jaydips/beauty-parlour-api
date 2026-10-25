@@ -9,27 +9,44 @@ use App\Models\SettingModel;
 use CodeIgniter\HTTP\RedirectResponse;
 
 /**
- * Parlour settings form (same keys and validation as PUT /settings).
+ * Parlour settings form (same keys and validation as PUT /settings), including the
+ * "auto WhatsApp on new booking" switch (wa_auto_send) with the bridge link state and the send window.
  *   GET /app/settings   POST /app/settings
  */
 class Settings extends WebController
 {
-    /** Keys shown on the form, in order, with Gujarati labels. */
-    public const FIELDS = [
-        'parlour_name'          => 'Parlour નું નામ',
-        'parlour_phone'         => 'Parlour નો mobile (10 અંક)',
-        'parlour_address'       => 'સરનામું',
-        'country_code'          => 'Country code (WhatsApp માટે)',
-        'slot_minutes'          => 'Slot (મિનિટ)',
-        'reminder_lead_hours'   => 'Appointment reminder કેટલા કલાક પહેલાં',
-        'followup_days'         => 'Follow-up કેટલા દિવસ પછી',
-        'tpl_whatsapp_reminder' => 'WhatsApp template: appointment reminder',
-        'tpl_whatsapp_followup' => 'WhatsApp template: follow-up',
-        'tpl_whatsapp_birthday' => 'WhatsApp template: જન્મદિવસ',
-        'tpl_whatsapp_booking'  => 'WhatsApp template: booking confirmation (auto-send)',
-        'wa_send_from'          => 'Auto-send: આ સમયથી',
-        'wa_send_to'            => 'Auto-send: આ સમય સુધી',
+    /** Keys the form may change, in order. Labels come from lang('App.setting_<key>'). */
+    public const KEYS = [
+        'wa_auto_send',
+        'wa_send_from',
+        'wa_send_to',
+        'parlour_name',
+        'parlour_phone',
+        'parlour_address',
+        'country_code',
+        'slot_minutes',
+        'reminder_lead_hours',
+        'followup_days',
+        'tpl_whatsapp_booking',
+        'tpl_whatsapp_reminder',
+        'tpl_whatsapp_followup',
+        'tpl_whatsapp_birthday',
+        'tpl_whatsapp_offer',
     ];
+
+    /**
+     * @return array<string, string> key => Gujarati label
+     */
+    public static function fields(): array
+    {
+        $out = [];
+
+        foreach (self::KEYS as $key) {
+            $out[$key] = lang('App.setting_' . $key);
+        }
+
+        return $out;
+    }
 
     public function show(): string
     {
@@ -39,16 +56,22 @@ class Settings extends WebController
             $values[$key] ??= $default;
         }
 
-        return $this->render('web/settings', ['title' => 'Settings', 'values' => $values, 'fields' => self::FIELDS], 'more');
+        return $this->render('web/settings', [
+            'title'       => lang('App.title_settings'),
+            'values'      => $values,
+            'fields'      => self::fields(),
+            'bridgeState' => WhatsApp::bridgeState(),
+        ], 'more');
     }
 
     public function update(): RedirectResponse
     {
         $data   = $this->input();
+        $fields = self::fields();
         $errors = [];
         $clean  = [];
 
-        foreach (array_keys(self::FIELDS) as $key) {
+        foreach (self::KEYS as $key) {
             if (! array_key_exists($key, $data)) {
                 continue;
             }
@@ -62,7 +85,7 @@ class Settings extends WebController
             $error = SettingModel::validateValue($key, $value);
 
             if ($error !== null) {
-                $errors[] = self::FIELDS[$key] . ': ' . $error;
+                $errors[] = $fields[$key] . ': ' . $error;
             } else {
                 $clean[$key] = $value;
             }
@@ -78,6 +101,12 @@ class Settings extends WebController
             $model->setValue($key, $value);
         }
 
-        return redirect()->to(site_url('app/settings'))->with('success', 'Settings સાચવ્યાં.');
+        $message = lang('App.settings_saved');
+
+        if (($clean['wa_auto_send'] ?? null) === '1') {
+            $message .= ' ' . lang('App.auto_send_on');
+        }
+
+        return redirect()->to(site_url('app/settings'))->with('success', $message);
     }
 }

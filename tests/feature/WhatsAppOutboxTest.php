@@ -111,6 +111,58 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->dontSeeInDatabase('messages', ['appointment_id' => $c['id']]);
     }
 
+    public function testBookingConfirmationIsGujaratiFollowsRescheduleAndIsCancelledWithTheAppointment(): void
+    {
+        $customers = new CustomerModel();
+        $cid       = $customers->insert(['name' => 'આશા', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
+        $haircut   = (new ServiceModel())->insert(['name' => 'Haircut', 'price' => 500, 'duration_minutes' => 45, 'is_active' => 1]);
+        $facial    = (new ServiceModel())->insert(['name' => 'Facial', 'price' => 1200, 'duration_minutes' => 60, 'is_active' => 1]);
+        $starts    = Time::parse('2026-11-07 10:30:00'); // Saturday
+
+        $a   = service('appointments')->create(['customer_id' => $cid, 'starts_at' => $starts->toDateTimeString()], [['service_id' => $haircut]]);
+        $row = (new MessageModel())->where('appointment_id', $a['id'])->where('type', 'booking')->first();
+        $this->assertNotNull($row);
+        $this->assertSame('queued', $row['status']);
+        $this->assertStringContainsString('નમસ્તે આશા', $row['body']);
+        $this->assertStringContainsString('મારું બ્યુટી પાર્લર', $row['body']);
+        $this->assertStringContainsString('શનિવાર, 7 નવેમ્બર 2026', $row['body'], '{date} is Gujarati');
+        $this->assertStringContainsString('સવારે 10:30', $row['body'], '{time} is Gujarati');
+        $this->assertStringContainsString('Haircut', $row['body']);
+        $this->assertStringNotContainsString('{', $row['body'], 'every placeholder is replaced');
+
+        // moving the appointment rewrites the queued confirmation (never a second one)
+        service('appointments')->update((int) $a['id'], ['starts_at' => '2026-11-08 18:00:00'], [['service_id' => $facial]]);
+        $rows = (new MessageModel())->where('appointment_id', $a['id'])->where('type', 'booking')->findAll();
+        $this->assertCount(1, $rows);
+        $this->assertSame('queued', $rows[0]['status']);
+        $this->assertStringContainsString('રવિવાર, 8 નવેમ્બર 2026', $rows[0]['body']);
+        $this->assertStringContainsString('સાંજે 6:00', $rows[0]['body']);
+        $this->assertStringContainsString('Facial', $rows[0]['body']);
+        $this->assertStringNotContainsString('Haircut', $rows[0]['body']);
+
+        // the cron sends exactly that Gujarati text through the bridge
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('sent 1, failed 0', $out);
+        $this->assertSame('9876543211', $this->bridge->sent[0]['to']);
+        $this->assertSame($rows[0]['body'], $this->bridge->sent[0]['text']);
+        $this->seeInDatabase('messages', ['id' => $rows[0]['id'], 'status' => 'sent']);
+
+        // a cancelled appointment cancels what is still queued for it (confirmation + reminder), sent rows stay
+        $b = service('appointments')->create(['customer_id' => $cid, 'starts_at' => '2026-11-09 11:00:00'], [['service_id' => $haircut]]);
+        (new ReminderModel())->builder()->where('appointment_id', $b['id'])->update(['due_at' => Time::now()->subMinutes(1)->toDateTimeString()]);
+        $this->assertSame(1, service('outbox')->enqueueDueReminders(Time::now()), 'the appointment reminder is queued too');
+        $this->assertSame(2, (new MessageModel())->where('appointment_id', $b['id'])->where('status', 'queued')->countAllResults());
+
+        service('appointments')->changeStatus((int) $b['id'], AppointmentModel::STATUS_CANCELLED, 'બીમાર');
+        $this->assertSame(0, (new MessageModel())->where('appointment_id', $b['id'])->where('status', 'queued')->countAllResults());
+        $this->assertSame(2, (new MessageModel())->where('appointment_id', $b['id'])->where('status', 'cancelled')->countAllResults());
+        $this->seeInDatabase('messages', ['id' => $rows[0]['id'], 'status' => 'sent']);
+
+        $again = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('sent 0', $again);
+        $this->assertCount(1, $this->bridge->sent, 'cancelled rows are never sent');
+    }
+
     public function testCronSendsDueRemindersThroughTheBridgeOnce(): void
     {
         $cid = (new CustomerModel())->insert(['name' => 'Falguni', 'phone' => '9876543213', 'whatsapp_opt_in' => 1]);
@@ -174,7 +226,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertSame(2, (new MessageModel())->where('type', 'offer')->countAllResults());
         $this->seeInDatabase('messages', ['phone' => '9876543211', 'type' => 'offer', 'status' => 'queued']);
         $row = (new MessageModel())->where('phone', '9876543211')->first();
-        $this->assertSame('Hi Asha, 20% off at My Beauty Parlour this week!', $row['body']);
+        $this->assertSame('Hi Asha, 20% off at મારું બ્યુટી પાર્લર this week!', $row['body']);
 
         $page = $this->withSession($this->ownerSession)->get('app/campaigns/1');
         $page->assertStatus(200);
@@ -194,7 +246,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $page = $this->withSession($this->ownerSession)->get('app/whatsapp');
         $page->assertStatus(200);
         $page->assertSee('9033319266');
-        $page->assertSee('Auto-send');
+        $page->assertSee('ઑટો WhatsApp');
 
         $this->withSession($this->ownerSession)->post('app/whatsapp/auto-send', $this->csrf(['enabled' => '0']))->assertStatus(302);
         $this->seeInDatabase('settings', ['key' => 'wa_auto_send', 'value' => '0']);
@@ -250,7 +302,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $ok = $this->runCommand('whatsapp:test --to 9876543210');
         $this->assertStringContainsString('sent to 9876543210: id=ABC123', $ok);
         $this->assertCount(1, $this->bridge->sent);
-        $this->assertStringContainsString('My Beauty Parlour', $this->bridge->sent[0]['text']);
+        $this->assertStringContainsString('મારું બ્યુટી પાર્લર', $this->bridge->sent[0]['text']);
 
         $this->bridge->sendReply = ['ok' => false, 'error' => 'not_connected'];
         $fail = $this->runCommand('whatsapp:test --to 9876543210');

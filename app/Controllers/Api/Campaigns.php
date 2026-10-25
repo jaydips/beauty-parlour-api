@@ -41,6 +41,7 @@ class Campaigns extends ApiController
             'recipients' => count($recipients),
             'sample'     => array_map(static fn (array $c): array => ['id' => (int) $c['id'], 'name' => $c['name'], 'phone' => $c['phone']], array_slice($recipients, 0, 5)),
             'auto_send'  => service('outbox')->autoSendEnabled(),
+            'default_body' => service('whatsapp')->template('offer'), // settings.tpl_whatsapp_offer, Gujarati by default
         ]);
     }
 
@@ -72,7 +73,7 @@ class Campaigns extends ApiController
     public function show(int $id): ResponseInterface
     {
         if ((new CampaignModel())->find($id) === null) {
-            return $this->failNotFound('Campaign not found.');
+            return $this->failNotFound(lang('App.campaign_not_found'));
         }
 
         return $this->respond($this->payload($id));
@@ -81,7 +82,7 @@ class Campaigns extends ApiController
     public function cancel(int $id): ResponseInterface
     {
         if ((new CampaignModel())->find($id) === null) {
-            return $this->failNotFound('Campaign not found.');
+            return $this->failNotFound(lang('App.campaign_not_found'));
         }
 
         $cancelled = service('outbox')->cancelCampaign($id);

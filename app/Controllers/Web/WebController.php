@@ -40,11 +40,13 @@ abstract class WebController extends BaseController
      */
     protected function render(string $view, array $data = [], string $active = ''): string
     {
+        $parlour = (string) ((new SettingModel())->value('parlour_name') ?: lang('App.app_name'));
+
         $data += [
             'owner'   => $this->owner(),
             'active'  => $active,
-            'parlour' => (string) (new SettingModel())->value('parlour_name', 'Beauty Parlour'),
-            'title'   => $data['title'] ?? 'Beauty Parlour',
+            'parlour' => $parlour,
+            'title'   => $data['title'] ?? $parlour,
         ];
 
         return view($view, $data);

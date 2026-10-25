@@ -28,7 +28,7 @@ class OwnerModel extends Model
     ];
 
     protected $validationMessages = [
-        'phone' => ['regex_match' => 'Phone must be exactly 10 digits without country code.'],
+        'phone' => ['regex_match' => 'App.validation_phone_digits'], // language key, resolved by lang()
     ];
 
     /**

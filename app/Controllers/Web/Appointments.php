@@ -34,7 +34,7 @@ class Appointments extends WebController
         $rows = (new AppointmentModel())->forDay($date);
 
         return $this->render('web/appointments/index', [
-            'title'        => 'Appointments',
+            'title'        => lang('App.title_appointments'),
             'date'         => $date,
             'prev'         => $day->subDays(1)->toDateString(),
             'next'         => $day->addDays(1)->toDateString(),
@@ -69,10 +69,10 @@ class Appointments extends WebController
         $items    = $this->itemsFromForm($data);
 
         if ($startsAt === null) {
-            return redirect()->back()->withInput()->with('error', 'તારીખ અને સમય બરાબર ભરો.');
+            return redirect()->back()->withInput()->with('error', lang('App.fill_date_time'));
         }
         if ($items === []) {
-            return redirect()->back()->withInput()->with('error', 'ઓછામાં ઓછી એક service પસંદ કરો.');
+            return redirect()->back()->withInput()->with('error', lang('App.select_one_service'));
         }
 
         $svc = service('appointments');
@@ -100,7 +100,9 @@ class Appointments extends WebController
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()->to(site_url('app/appointments/' . $created['id']))->with('success', 'Appointment book થઈ.');
+        $queued = (new \App\Models\MessageModel())->where('appointment_id', $created['id'])->where('type', 'booking')->countAllResults() > 0;
+
+        return redirect()->to(site_url('app/appointments/' . $created['id']))->with('success', $queued ? lang('App.appointment_booked_wa') : lang('App.appointment_booked'));
     }
 
     public function show(int $id): string|RedirectResponse
@@ -108,7 +110,7 @@ class Appointments extends WebController
         $appointment = service('appointments')->withDetails($id);
 
         if ($appointment === null) {
-            return redirect()->to(site_url('app/appointments'))->with('error', 'Appointment મળી નહીં.');
+            return redirect()->to(site_url('app/appointments'))->with('error', lang('App.appointment_not_found'));
         }
 
         $wa = service('whatsapp');
@@ -118,7 +120,7 @@ class Appointments extends WebController
         }
 
         return $this->render('web/appointments/show', [
-            'title' => 'Appointment',
+            'title' => lang('App.title_appointment'),
             'a'     => $appointment,
         ], 'appointments');
     }
@@ -128,7 +130,7 @@ class Appointments extends WebController
         $appointment = (new AppointmentModel())->find($id);
 
         if ($appointment === null) {
-            return redirect()->to(site_url('app/appointments'))->with('error', 'Appointment મળી નહીં.');
+            return redirect()->to(site_url('app/appointments'))->with('error', lang('App.appointment_not_found'));
         }
 
         $customer              = (new CustomerModel())->withDeleted()->find((int) $appointment['customer_id']);
@@ -143,7 +145,7 @@ class Appointments extends WebController
         $current = (new AppointmentModel())->find($id);
 
         if ($current === null) {
-            return redirect()->to(site_url('app/appointments'))->with('error', 'Appointment મળી નહીં.');
+            return redirect()->to(site_url('app/appointments'))->with('error', lang('App.appointment_not_found'));
         }
 
         $data     = $this->input();
@@ -151,7 +153,7 @@ class Appointments extends WebController
         $items    = $this->itemsFromForm($data);
 
         if ($items === []) {
-            return redirect()->back()->withInput()->with('error', 'ઓછામાં ઓછી એક service પસંદ કરો.');
+            return redirect()->back()->withInput()->with('error', lang('App.select_one_service'));
         }
 
         try {
@@ -178,7 +180,7 @@ class Appointments extends WebController
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()->to(site_url('app/appointments/' . $id))->with('success', 'Appointment સુધારી.');
+        return redirect()->to(site_url('app/appointments/' . $id))->with('success', lang('App.appointment_updated'));
     }
 
     public function status(int $id): RedirectResponse
@@ -187,7 +189,7 @@ class Appointments extends WebController
         $reason = trim((string) $this->request->getPost('reason')) ?: null;
 
         if (! in_array($status, AppointmentModel::STATUSES, true)) {
-            return $this->back('app/appointments')->with('error', 'ખોટો status.');
+            return $this->back('app/appointments')->with('error', lang('App.invalid_status'));
         }
 
         try {
@@ -196,7 +198,7 @@ class Appointments extends WebController
             return $this->back('app/appointments')->with('error', $e->getMessage());
         }
 
-        return redirect()->to(site_url('app/appointments/' . $id))->with('success', 'Status: ' . status_label($status));
+        return redirect()->to(site_url('app/appointments/' . $id))->with('success', lang('App.status_changed', [status_label($status)]));
     }
 
     public function delete(int $id): RedirectResponse
@@ -204,7 +206,7 @@ class Appointments extends WebController
         $appointment = (new AppointmentModel())->find($id);
 
         if ($appointment === null) {
-            return redirect()->to(site_url('app/appointments'))->with('error', 'Appointment મળી નહીં.');
+            return redirect()->to(site_url('app/appointments'))->with('error', lang('App.appointment_not_found'));
         }
 
         try {
@@ -215,7 +217,7 @@ class Appointments extends WebController
 
         $date = Time::parse($appointment['starts_at'])->toDateString();
 
-        return redirect()->to(site_url('app/appointments') . '?date=' . $date)->with('success', 'Appointment delete થઈ.');
+        return redirect()->to(site_url('app/appointments') . '?date=' . $date)->with('success', lang('App.appointment_deleted'));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -246,7 +248,7 @@ class Appointments extends WebController
         }
 
         return $this->render('web/appointments/form', [
-            'title'       => $appointment ? 'Appointment સુધારો' : 'નવી appointment',
+            'title'       => $appointment ? lang('App.title_edit_appointment') : lang('App.title_new_appointment'),
             'appointment' => $appointment,
             'customer'    => $customer,
             'services'    => $services,
@@ -268,7 +270,7 @@ class Appointments extends WebController
 
         if (! empty($data['customer_id'])) {
             if ($customers->find((int) $data['customer_id']) === null) {
-                throw new InvalidArgumentException('Customer મળ્યો નહીં.');
+                throw new InvalidArgumentException(lang('App.customer_not_found'));
             }
 
             return (int) $data['customer_id'];
@@ -282,11 +284,11 @@ class Appointments extends WebController
                 return $fallback;
             }
 
-            throw new InvalidArgumentException('Customer પસંદ કરો અથવા નવા customer નું નામ અને mobile લખો.');
+            throw new InvalidArgumentException(lang('App.select_or_add_customer'));
         }
 
         if ($name === '' || ! preg_match('/^\d{10}$/', $phone)) {
-            throw new InvalidArgumentException('નવા customer માટે નામ અને 10 અંકનો mobile નંબર જોઈએ.');
+            throw new InvalidArgumentException(lang('App.new_customer_needs_name_phone'));
         }
 
         $existing = $customers->findByPhone($phone, true);
@@ -353,7 +355,7 @@ class Appointments extends WebController
             $parts[] = fmt_time($c['starts_at']) . '–' . fmt_time($c['ends_at']) . ' ' . ($c['customer']['name'] ?? '');
         }
 
-        return 'આ સમયે બીજી appointment છે: ' . implode(', ', $parts) . '. તો પણ book કરવી હોય તો નીચે "તો પણ book કરો" પસંદ કરો.';
+        return lang('App.conflict_message', [implode(', ', $parts)]);
     }
 
     private function validDate(string $date): string

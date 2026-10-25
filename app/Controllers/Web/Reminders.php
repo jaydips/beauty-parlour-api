@@ -41,7 +41,7 @@ class Reminders extends WebController
         $rows = $model->orderBy('due_at', $status === 'pending' ? 'ASC' : 'DESC')->findAll(200);
 
         return $this->render('web/reminders/index', [
-            'title'     => 'Reminders',
+            'title'     => lang('App.title_reminders'),
             'due'       => $due,
             'status'    => $status,
             'reminders' => service('dashboard')->decorateReminders($rows),
@@ -57,7 +57,7 @@ class Reminders extends WebController
         }
 
         return $this->render('web/reminders/form', [
-            'title'    => 'નવું reminder',
+            'title'    => lang('App.title_new_reminder'),
             'customer' => $customer,
             'date'     => old('date', Time::now()->toDateString()),
             'time'     => old('time', Time::now()->addHours(1)->format('H:00')),
@@ -73,13 +73,13 @@ class Reminders extends WebController
         $time       = (string) ($data['time'] ?? '');
 
         if ($customerId <= 0 || (new CustomerModel())->find($customerId) === null) {
-            return redirect()->back()->withInput()->with('error', 'Customer પસંદ કરો.');
+            return redirect()->back()->withInput()->with('error', lang('App.select_customer'));
         }
         if ($message === '') {
-            return redirect()->back()->withInput()->with('error', 'Message લખો.');
+            return redirect()->back()->withInput()->with('error', lang('App.enter_message'));
         }
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || ! preg_match('/^\d{2}:\d{2}$/', $time) || strtotime("{$date} {$time}:00") === false) {
-            return redirect()->back()->withInput()->with('error', 'તારીખ અને સમય બરાબર ભરો.');
+            return redirect()->back()->withInput()->with('error', lang('App.fill_date_time'));
         }
 
         $model = new ReminderModel();
@@ -96,7 +96,7 @@ class Reminders extends WebController
             return redirect()->back()->withInput()->with('error', implode(' ', $model->errors()));
         }
 
-        return redirect()->to(site_url('app/reminders') . '?due=all')->with('success', 'Reminder ઉમેરાયું.');
+        return redirect()->to(site_url('app/reminders') . '?due=all')->with('success', lang('App.reminder_added'));
     }
 
     public function sent(int $id): RedirectResponse
@@ -104,12 +104,12 @@ class Reminders extends WebController
         $model = new ReminderModel();
 
         if ($model->find($id) === null) {
-            return $this->back()->with('error', 'Reminder મળ્યું નહીં.');
+            return $this->back()->with('error', lang('App.reminder_not_found'));
         }
 
         $model->markSent($id);
 
-        return $this->back()->with('success', 'Reminder "મોકલ્યું" તરીકે નોંધાયું.');
+        return $this->back()->with('success', lang('App.reminder_marked_sent'));
     }
 
     public function skip(int $id): RedirectResponse
@@ -117,11 +117,11 @@ class Reminders extends WebController
         $model = new ReminderModel();
 
         if ($model->find($id) === null) {
-            return $this->back()->with('error', 'Reminder મળ્યું નહીં.');
+            return $this->back()->with('error', lang('App.reminder_not_found'));
         }
 
         $model->update($id, ['status' => 'skipped', 'sent_at' => null]);
 
-        return $this->back()->with('success', 'Reminder છોડી દીધું.');
+        return $this->back()->with('success', lang('App.reminder_skipped'));
     }
 }

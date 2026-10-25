@@ -7,31 +7,31 @@
         <h1><?= esc($c['name']) ?></h1>
         <div class="muted"><?= esc($c['phone']) ?><?= $c['alt_phone'] ? ' · ' . esc($c['alt_phone']) : '' ?></div>
     </div>
-    <a class="btn btn-ghost btn-sm" href="<?= site_url("app/customers/{$id}/edit") ?>">સુધારો</a>
+    <a class="btn btn-ghost btn-sm" href="<?= site_url("app/customers/{$id}/edit") ?>"><?= esc(lang('App.edit')) ?></a>
 </div>
 
 <div class="actions">
-    <a class="btn btn-primary" href="<?= site_url('app/appointments/new') ?>?customer_id=<?= $id ?>">+ Appointment</a>
-    <a class="btn btn-wa" href="<?= esc($wa_link, 'attr') ?>" target="_blank" rel="noopener">WhatsApp</a>
-    <a class="btn btn-ghost" href="tel:<?= esc($c['phone'], 'attr') ?>">Call</a>
+    <a class="btn btn-primary" href="<?= site_url('app/appointments/new') ?>?customer_id=<?= $id ?>"><?= esc(lang('App.plus_appointment')) ?></a>
+    <a class="btn btn-wa" href="<?= esc($wa_link, 'attr') ?>" target="_blank" rel="noopener"><?= esc(lang('App.whatsapp')) ?></a>
+    <a class="btn btn-ghost" href="tel:<?= esc($c['phone'], 'attr') ?>"><?= esc(lang('App.call')) ?></a>
 </div>
 
 <section class="stats">
-    <div class="stat"><span class="num"><?= (int) $stats['visits'] ?></span><span class="lbl">Visits</span></div>
-    <div class="stat"><span class="num"><?= esc(rupees($stats['total_spent'])) ?></span><span class="lbl">કુલ ખર્ચ</span></div>
+    <div class="stat"><span class="num"><?= (int) $stats['visits'] ?></span><span class="lbl"><?= esc(lang('App.visits')) ?></span></div>
+    <div class="stat"><span class="num"><?= esc(rupees($stats['total_spent'])) ?></span><span class="lbl"><?= esc(lang('App.total_spent')) ?></span></div>
 </section>
 
 <div class="card">
-    <div class="row"><span>છેલ્લી visit</span><span><?= $stats['last_visit_at'] ? esc(fmt_date($stats['last_visit_at'])) : '-' ?></span></div>
-    <div class="row"><span>જન્મદિવસ</span><span><?= $c['birthday'] ? esc(fmt_date($c['birthday'])) : '-' ?></span></div>
-    <div class="row"><span>WhatsApp reminders</span><span><?= (int) $c['whatsapp_opt_in'] === 1 ? 'હા' : 'ના' ?></span></div>
+    <div class="row"><span><?= esc(lang('App.last_visit')) ?></span><span><?= $stats['last_visit_at'] ? esc(fmt_date($stats['last_visit_at'])) : '-' ?></span></div>
+    <div class="row"><span><?= esc(lang('App.birthday')) ?></span><span><?= $c['birthday'] ? esc(fmt_date($c['birthday'])) : '-' ?></span></div>
+    <div class="row"><span><?= esc(lang('App.whatsapp_reminders')) ?></span><span><?= esc((int) $c['whatsapp_opt_in'] === 1 ? lang('App.yes') : lang('App.no')) ?></span></div>
     <?php if (! empty($c['notes'])): ?><p class="msg"><?= esc($c['notes']) ?></p><?php endif ?>
 </div>
 
 <section class="block">
-    <div class="block-head"><h2>Appointments</h2></div>
+    <div class="block-head"><h2><?= esc(lang('App.appointments')) ?></h2></div>
     <?php if ($recent === []): ?>
-        <p class="empty">હજુ કોઈ appointment નથી.</p>
+        <p class="empty"><?= esc(lang('App.no_appointments_yet')) ?></p>
     <?php else: ?>
         <?php foreach ($recent as $a): ?>
             <a class="card card-link" href="<?= site_url('app/appointments/' . (int) $a['id']) ?>">
@@ -48,9 +48,9 @@
     <?php endif ?>
 </section>
 
-<form method="post" action="<?= site_url("app/customers/{$id}/delete") ?>" data-confirm="આ customer દૂર કરવો? (history સચવાશે)" class="block">
+<form method="post" action="<?= site_url("app/customers/{$id}/delete") ?>" data-confirm="<?= esc(lang('App.confirm_delete_customer'), 'attr') ?>" class="block">
     <?= csrf_field() ?>
-    <button class="btn btn-ghost btn-block">Customer દૂર કરો</button>
+    <button class="btn btn-ghost btn-block"><?= esc(lang('App.delete_customer')) ?></button>
 </form>
 
 <?= $this->endSection() ?>

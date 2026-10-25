@@ -38,6 +38,17 @@ The Android frontend is built separately in Flutter and talks to this API over H
   (booking with customer autocomplete/quick-add, conflicts, status, payments), customers, services,
   payments, WhatsApp reminders with `wa.me` buttons, settings, password change, "Add to Home Screen"
   manifest. Gujarati labels. Live at `https://delicate.jainamagrifood.com/login`.
+- **Phase 4 - automatic WhatsApp - complete (2026-10-24):** Baileys bridge, outbox, offer campaigns,
+  cron sender; off by default. See `docs/whatsapp.md`.
+- **Phase 5 - Gujarati end to end + auto WhatsApp on booking (2026-10-25, branch
+  `claude/gujarati-ui-auto-whatsapp`):** default locale `gu` with `app/Language/gu/{App,Validation,Errors}.php`,
+  every web page, flash message, validation message, status label, date ("25 ઑક્ટો 2026",
+  "સવારે 10:30") and API error text in Gujarati; Gujarati WhatsApp templates (seeder + migration
+  `2026-10-25-100001` that converts untouched English defaults); new `tpl_whatsapp_offer`; the
+  "નવી બુકિંગ પર ઑટો WhatsApp" switch with bridge state and send window on `/app/settings`; queued
+  confirmations follow reschedules/cancellations; owner guide in Gujarati
+  (`docs/whatsapp-owner-guide.gu.md` and on the WhatsApp page). Deployment notes: `docs/deployment.md`
+  section 8.
 - See [Deliberately not done yet](#deliberately-not-done-yet) for what is still open.
 
 ## Scope of this release
@@ -193,8 +204,13 @@ number and switches auto-send on at `/app/whatsapp`. Setup, limits and risks: `d
   only in production (`app/Config/Cookie.php`).
 - `App\Libraries\DashboardService` builds the home-screen data for both `GET /dashboard` (JSON)
   and `/app`.
-- Display helpers (`rupees()`, `fmt_date()`, `status_label()`, ...) live in
+- Display helpers (`rupees()`, `fmt_date()`, `gu_date()`, `gu_time()`, `status_label()`, ...) live in
   `app/Helpers/format_helper.php` and are autoloaded.
+- Language: `app/Config/App.php` sets `defaultLocale = 'gu'`. Every user-facing string goes through
+  `lang('App.key')` and lives in `app/Language/gu/App.php` (plus `Validation.php` and `Errors.php`
+  for the framework's messages); `tests/unit/LanguageKeysTest.php` fails when a key used in `app/`
+  is missing there. To add a language later, copy the `gu` folder to e.g. `en` and switch the
+  locale per request (`$request->setLocale()`); enum values in the API never change.
 - Local development: create a dev owner with `POST /install/owner?key=<install.key from .env>`,
   then open `http://localhost:8080/login`.
 

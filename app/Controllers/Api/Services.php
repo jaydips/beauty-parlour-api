@@ -28,7 +28,7 @@ class Services extends ApiController
     {
         $row = (new ServiceModel())->find($id);
 
-        return $row === null ? $this->failNotFound('Service not found.') : $this->respond(['service' => $row]);
+        return $row === null ? $this->failNotFound(lang('App.service_not_found')) : $this->respond(['service' => $row]);
     }
 
     public function create(): ResponseInterface
@@ -48,13 +48,13 @@ class Services extends ApiController
         $model = new ServiceModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Service not found.');
+            return $this->failNotFound(lang('App.service_not_found'));
         }
 
         $data = $this->pick($this->input());
 
         if ($data === []) {
-            return $this->fail('Nothing to update.', 400);
+            return $this->fail(lang('App.api_nothing_to_update'), 400);
         }
 
         if (! $model->update($id, $data)) {
@@ -69,7 +69,7 @@ class Services extends ApiController
         $model = new ServiceModel();
 
         if ($model->find($id) === null) {
-            return $this->failNotFound('Service not found.');
+            return $this->failNotFound(lang('App.service_not_found'));
         }
 
         $model->delete($id);
