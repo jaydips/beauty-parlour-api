@@ -59,10 +59,15 @@ Unknown routes: `404 {"status":404,"error":"Not Found"}`.
   `reminder_lead_hours`, `followup_days`, `tpl_whatsapp_booking`, `tpl_whatsapp_reminder`,
   `tpl_whatsapp_followup`, `tpl_whatsapp_birthday`, `tpl_whatsapp_offer`, `wa_auto_send` (`"0"`/`"1"`),
   `wa_send_from`, `wa_send_to` (`HH:MM`), `tpl_whatsapp_review`, `google_review_url`,
-  `instagram_url` (both blank by default; `http(s)://` without spaces, or empty; the review template
-  renders `{review_link}` / `{instagram_link}` from them, or a Gujarati "(સેટિંગ્સમાં … લિંક ઉમેરો)"
-  hint while blank). Templates accept `{customer_name} {parlour_name}
-  {parlour_address} {parlour_phone} {date} {time} {services} {review_link} {instagram_link}`; their defaults are Gujarati with
+  `instagram_url`, `whatsapp_group_url` (URLs: `http(s)://` without spaces, or empty; the owner's
+  Google and Instagram links were set by migration `2026-10-25-140001` where blank) and `tagline`
+  (default "આપની સુંદરતા, અમારી ખુશી!"). Templates accept `{customer_name} {parlour_name}
+  {parlour_address} {parlour_phone} {tagline} {date} {time} {services} {review_link}
+  {instagram_link} {whatsapp_group_link} {social_links}`; a link placeholder renders a Gujarati
+  "(સેટિંગ્સમાં તમારી … લિંક ઉમેરો)" hint while its setting is blank, and `{social_links}` is the
+  block "⭐ Follow Our Google Page & Give Us a Review ⭐ / 🔗 Google Review: / URL", "📸 Follow Our
+  Instagram Page: / URL", "💬 Join Our WhatsApp Group: / URL" with only the configured links,
+  paragraphs separated by blank lines (one hint line when none is set). Their defaults are Gujarati with
   WhatsApp `*bold*` markup and emoji (greeting + status, detail lines, parlour signature, closing
   line). `{date}` renders as `dd/mm/yyyy`, `{time}` in Gujarati ("સવારે 10:30"); a line that only
   carried an empty placeholder (no address or phone configured) is dropped from the message.

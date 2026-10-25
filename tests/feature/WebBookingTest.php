@@ -104,8 +104,8 @@ final class WebBookingTest extends CIUnitTestCase
         // the review request waits on the detail page as a pending reminder with the click-to-chat button
         $this->seeInDatabase('reminders', ['appointment_id' => $id, 'type' => 'review', 'status' => 'pending']);
         $review = (new \App\Models\ReminderModel())->where('appointment_id', $id)->where('type', 'review')->first();
-        $this->assertStringContainsString('Google પર review આપો', $review['message']);
-        $this->assertStringContainsString('Haircut, Facial', $review['message']);
+        $this->assertStringContainsString('પ્રિય *Rina* ❤️', $review['message']);
+        $this->assertStringContainsString('એક નાનું રીવ્યુ જરૂર આપશો', $review['message']);
         $page = $this->withSession($this->ownerSession)->get("app/appointments/{$id}");
         $page->assertSee('રિવ્યૂ વિનંતી');
         $page->assertSee('https://wa.me/919000000002?text=' . rawurlencode($review['message']), null);

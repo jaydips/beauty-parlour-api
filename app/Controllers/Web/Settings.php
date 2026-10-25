@@ -35,6 +35,8 @@ class Settings extends WebController
         'tpl_whatsapp_review',
         'google_review_url',
         'instagram_url',
+        'whatsapp_group_url',
+        'tagline',
     ];
 
     /**

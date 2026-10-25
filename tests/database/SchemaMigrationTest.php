@@ -90,19 +90,52 @@ final class SchemaMigrationTest extends CIUnitTestCase
             $chain[] = $class::REPLACEMENTS;
         }
 
-        for ($i = 1, $n = count($chain); $i < $n; $i++) {
-            foreach ($chain[$i] as $key => $texts) {
-                if (isset($chain[$i - 1][$key])) {
-                    $this->assertSame($chain[$i - 1][$key][1], $texts[0], "{$key}: migration {$i} must continue migration " . ($i - 1));
+        $lastWrite = [];
+
+        foreach ($chain as $i => $replacements) {
+            foreach ($replacements as $key => $texts) {
+                if (isset($lastWrite[$key])) {
+                    $this->assertSame($lastWrite[$key], $texts[0], "{$key}: migration {$i} must continue the previous one");
                 }
+                $lastWrite[$key] = $texts[1];
             }
         }
 
-        foreach (end($chain) as $key => $texts) {
-            $this->assertSame(SettingsSeeder::DEFAULTS[$key], $texts[1], "{$key}: last migration writes the seeder default");
-            $this->assertStringContainsString('*', $texts[1], "{$key}: WhatsApp bold markup");
-            $this->assertStringContainsString('{parlour_name}', $texts[1]);
+        foreach ($lastWrite as $key => $text) {
+            $this->assertSame(SettingsSeeder::DEFAULTS[$key], $text, "{$key}: the last migration that touches it writes the seeder default");
+            $this->assertStringContainsString('*', $text, "{$key}: WhatsApp bold markup");
+            $this->assertStringContainsString('{parlour_name}', $text);
         }
+        $this->assertArrayHasKey('tpl_whatsapp_review', $lastWrite);
+    }
+
+    public function testOwnerLinksMigrationFillsOnlyBlankSettings(): void
+    {
+        [, , , $class] = $this->templateMigrations();
+        $links    = $class::OWNER_LINKS;
+        $settings = $this->db->table('settings');
+
+        // Google link blank (filled), Instagram typed by the owner (kept), draft review template (replaced)
+        $settings->where('key', 'google_review_url')->update(['value' => '']);
+        $settings->where('key', 'instagram_url')->update(['value' => 'https://instagram.com/mine']);
+        $settings->where('key', 'tpl_whatsapp_review')->update(['value' => $class::REPLACEMENTS['tpl_whatsapp_review'][0]]);
+
+        $migration = new $class(\Config\Database::forge($this->db));
+        $migration->up();
+        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => $links['google_review_url']]);
+        $this->seeInDatabase('settings', ['key' => 'instagram_url', 'value' => 'https://instagram.com/mine']);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_review', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_review']]);
+
+        // a missing row is inserted; running again changes nothing; down() clears only the owner's values
+        $settings->where('key', 'instagram_url')->delete();
+        $migration->up();
+        $this->seeInDatabase('settings', ['key' => 'instagram_url', 'value' => $links['instagram_url']]);
+        $migration->up();
+        $this->assertSame(1, $this->db->table('settings')->where('key', 'instagram_url')->countAllResults());
+        $migration->down();
+        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => '']);
+        $this->seeInDatabase('settings', ['key' => 'instagram_url', 'value' => '']);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_review', 'value' => $class::REPLACEMENTS['tpl_whatsapp_review'][0]]);
     }
 
     public function testEmojiTemplateMigrationUpgradesOnlyThePreviousDefaults(): void
@@ -180,11 +213,13 @@ final class SchemaMigrationTest extends CIUnitTestCase
         require_once APPPATH . 'Database/Migrations/2026-10-25-100001_GujaratiTemplateDefaults.php';
         require_once APPPATH . 'Database/Migrations/2026-10-25-120001_EmojiTemplateDefaults.php';
         require_once APPPATH . 'Database/Migrations/2026-10-25-130001_SignatureTemplateDefaults.php';
+        require_once APPPATH . 'Database/Migrations/2026-10-25-140001_ReviewTemplateAndOwnerLinks.php';
 
         return [
             \App\Database\Migrations\GujaratiTemplateDefaults::class,
             \App\Database\Migrations\EmojiTemplateDefaults::class,
             \App\Database\Migrations\SignatureTemplateDefaults::class,
+            \App\Database\Migrations\ReviewTemplateAndOwnerLinks::class,
         ];
     }
 

@@ -17,14 +17,14 @@ $field    = static function (string $key, string $value): string {
     if ($key === 'parlour_phone' || $key === 'country_code') {
         return '<input id="' . $id . '" name="' . $id . '" type="tel" inputmode="numeric" value="' . esc($value) . '">';
     }
-    if ($key === 'google_review_url' || $key === 'instagram_url') {
+    if (in_array($key, ['google_review_url', 'instagram_url', 'whatsapp_group_url'], true)) {
         return '<input id="' . $id . '" name="' . $id . '" type="url" inputmode="url" placeholder="https://" value="' . esc($value) . '">';
     }
 
     return '<input id="' . $id . '" name="' . $id . '" type="text" value="' . esc($value) . '">';
 };
-$general   = ['parlour_name', 'parlour_phone', 'parlour_address', 'country_code', 'slot_minutes', 'reminder_lead_hours', 'followup_days'];
-$links     = ['google_review_url', 'instagram_url'];
+$general   = ['parlour_name', 'tagline', 'parlour_phone', 'parlour_address', 'country_code', 'slot_minutes', 'reminder_lead_hours', 'followup_days'];
+$links     = ['google_review_url', 'instagram_url', 'whatsapp_group_url'];
 $templates = ['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_birthday', 'tpl_whatsapp_review', 'tpl_whatsapp_offer'];
 ?>
 

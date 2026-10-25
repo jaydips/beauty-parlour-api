@@ -170,6 +170,11 @@ What changes on the server with this release, in addition to the steps above:
   `tpl_whatsapp_review`, `google_review_url` and `instagram_url` (blank; the owner fills the two
   links on *સેટિંગ્સ → રિવ્યૂ અને સોશિયલ લિંક*). No migration: `reminders.type` / `messages.type`
   are plain VARCHAR columns, the new value `review` needs no schema change.
+- Fifth release: the owner's own review text and links. Migration `2026-10-25-140001` replaces the
+  draft `tpl_whatsapp_review` (untouched default only) and fills `google_review_url` /
+  `instagram_url` with the owner's public links where they are blank or missing; the seeder adds
+  `whatsapp_group_url` (blank) and `tagline`. New placeholders `{social_links}`, `{tagline}`,
+  `{whatsapp_group_link}`.
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

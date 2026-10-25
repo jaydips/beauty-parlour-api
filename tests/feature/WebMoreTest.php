@@ -109,8 +109,11 @@ final class WebMoreTest extends CIUnitTestCase
         // review / social links: blank by default, validated, saved
         $page->assertSee('name="google_review_url"', null);
         $page->assertSee('name="instagram_url"', null);
+        $page->assertSee('name="whatsapp_group_url"', null);
+        $page->assertSee('name="tagline"', null);
+        $page->assertSee('આપની સુંદરતા, અમારી ખુશી!');
         $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['google_review_url' => 'not a url']))->assertStatus(302);
-        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => '']);
+        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => 'https://search.google.com/local/writereview?placeid=ChIJKw67quW3WTkRx7NbDtV8SjM']); // unchanged (migration value)
         $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['google_review_url' => 'https://g.page/r/abc/review', 'instagram_url' => 'https://instagram.com/delicate']))->assertStatus(302);
         $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => 'https://g.page/r/abc/review']);
         $this->seeInDatabase('settings', ['key' => 'instagram_url', 'value' => 'https://instagram.com/delicate']);

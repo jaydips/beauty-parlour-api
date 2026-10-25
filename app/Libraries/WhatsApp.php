@@ -123,10 +123,37 @@ class WhatsApp
             'parlour_name'    => (string) ($this->settings->value('parlour_name') ?: SettingsSeeder::DEFAULTS['parlour_name']),
             'parlour_address' => trim((string) $this->settings->value('parlour_address', '')),
             'parlour_phone'   => trim((string) $this->settings->value('parlour_phone', '')),
+            'tagline'         => trim((string) $this->settings->value('tagline', '')),
             // review / social links: a Gujarati hint while the owner has not set them, so it shows before sending
-            'review_link'     => trim((string) $this->settings->value('google_review_url', '')) ?: lang('App.review_link_missing'),
-            'instagram_link'  => trim((string) $this->settings->value('instagram_url', '')) ?: lang('App.instagram_link_missing'),
+            'review_link'         => trim((string) $this->settings->value('google_review_url', '')) ?: lang('App.review_link_missing'),
+            'instagram_link'      => trim((string) $this->settings->value('instagram_url', '')) ?: lang('App.instagram_link_missing'),
+            'whatsapp_group_link' => trim((string) $this->settings->value('whatsapp_group_url', '')) ?: lang('App.whatsapp_group_link_missing'),
+            'social_links'        => $this->socialLinks(),
         ];
+    }
+
+    /**
+     * The {social_links} block: one paragraph per configured link (Google review with its heading,
+     * Instagram, WhatsApp group) separated by blank lines; a Gujarati hint when none is configured.
+     */
+    public function socialLinks(): string
+    {
+        $google = trim((string) $this->settings->value('google_review_url', ''));
+        $insta  = trim((string) $this->settings->value('instagram_url', ''));
+        $group  = trim((string) $this->settings->value('whatsapp_group_url', ''));
+        $blocks = [];
+
+        if ($google !== '') {
+            $blocks[] = lang('App.social_google_heading') . "\n" . lang('App.social_google_label') . "\n" . $google;
+        }
+        if ($insta !== '') {
+            $blocks[] = lang('App.social_instagram_label') . "\n" . $insta;
+        }
+        if ($group !== '') {
+            $blocks[] = lang('App.social_whatsapp_label') . "\n" . $group;
+        }
+
+        return $blocks === [] ? lang('App.social_links_missing') : implode("\n\n", $blocks);
     }
 
     /**

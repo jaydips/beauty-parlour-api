@@ -211,9 +211,14 @@ final class ApiFlowTest extends CIUnitTestCase
         $this->assertSame('Delicate Beauty', $this->json($set)['settings']['parlour_name']);
 
         // review / social links are plain settings keys (blank by default, validated as URLs)
-        $this->assertSame('', $this->json($set)['settings']['google_review_url']);
-        $this->assertSame('', $this->json($set)['settings']['instagram_url']);
+        // the owner's public links arrive through migration 2026-10-25-140001; the group link stays blank
+        $this->assertStringStartsWith('https://search.google.com/local/writereview?placeid=', $this->json($set)['settings']['google_review_url']);
+        $this->assertSame('https://www.instagram.com/delicate_beauty_world_rajkot', $this->json($set)['settings']['instagram_url']);
+        $this->assertSame('', $this->json($set)['settings']['whatsapp_group_url']);
+        $this->assertSame('આપની સુંદરતા, અમારી ખુશી!', $this->json($set)['settings']['tagline']);
         $this->assertContains('tpl_whatsapp_review', $this->json($set)['editable_keys']);
+        $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['whatsapp_group_url' => 'https://chat.whatsapp.com/ABC', 'tagline' => 'સુંદરતા અમારો શોખ'])->assertStatus(200);
+        $this->assertSame('સુંદરતા અમારો શોખ', $this->json($this->withHeaders($auth)->get('settings'))['settings']['tagline']);
         $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['google_review_url' => 'g.page/no-scheme'])->assertStatus(400);
         $links = $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['google_review_url' => 'https://g.page/r/abc/review', 'instagram_url' => 'https://instagram.com/delicate']);
         $links->assertStatus(200);
