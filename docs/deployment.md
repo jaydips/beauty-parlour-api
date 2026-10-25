@@ -157,6 +157,10 @@ What changes on the server with this release, in addition to the steps above:
   fine on SQLite 3.7.17 and MySQL) and the seeder adds the new `tpl_whatsapp_offer` key. Templates
   the owner already edited are kept; the four English defaults become Gujarati. `GET /install/status`
   must list the migration under `applied` afterwards.
+- Same day, second release: migration `2026-10-25-120001_EmojiTemplateDefaults` upgrades the five
+  plain Gujarati defaults to the WhatsApp *bold* + emoji texts (the Flutter app ships the same ones);
+  again only rows still at the previous default change. On MySQL the emoji need the `utf8mb4`
+  charset that `app/Config/Database.php` now sets; the live SQLite needs nothing.
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

@@ -82,29 +82,46 @@ final class GujaratiFormatTest extends CIUnitTestCase
         $items    = [['service_name' => 'Haircut'], ['service_name' => 'Facial']];
 
         $booking = $wa->bookingMessage($customer, $appt, $items);
-        $this->assertStringStartsWith('નમસ્તે આશા પટેલ, મારું બ્યુટી પાર્લર માં', $booking);
-        $this->assertStringContainsString("તારીખ: શનિવાર, 7 નવેમ્બર 2026\nસમય: સવારે 10:30\nસેવા: Haircut, Facial", $booking);
+        $this->assertStringStartsWith("💖 *નમસ્તે આશા પટેલ!*\n✅ *મારું બ્યુટી પાર્લર* માં તમારી અપોઇન્ટમેન્ટ *બુક થઈ ગઈ છે.*", $booking);
+        $this->assertStringContainsString("📅 *તારીખ:* શનિવાર, 7 નવેમ્બર 2026\n⏰ *સમય:* સવારે 10:30\n💇‍♀️ *સેવા:* Haircut, Facial", $booking);
+        $this->assertStringEndsWith('🙏 સમયસર પધારશો. આભાર! ✨', $booking);
+        $this->assertStringNotContainsString('{', $booking);
 
         $reminder = $wa->appointmentMessage($customer, $appt, []);
-        $this->assertStringContainsString('યાદ અપાવવા માટે', $reminder);
-        $this->assertStringContainsString('સેવા: તમારી અપોઇન્ટમેન્ટ', $reminder, 'services fallback is Gujarati');
+        $this->assertStringStartsWith('⏰ *રિમાઇન્ડર – નમસ્તે આશા પટેલ!*', $reminder);
+        $this->assertStringContainsString('💇‍♀️ *સેવા:* તમારી અપોઇન્ટમેન્ટ', $reminder, 'services fallback is Gujarati');
 
-        $this->assertStringContainsString('જન્મદિવસની હાર્દિક શુભેચ્છાઓ આશા પટેલ!', $wa->birthdayMessage($customer));
-        $this->assertStringContainsString('છેલ્લી મુલાકાતને ઘણો સમય થયો', $wa->followUpMessage($customer));
-        $this->assertStringContainsString('ખાસ ઑફર', $wa->template('offer'));
+        $this->assertStringStartsWith('🎂🎉 *જન્મદિવસની હાર્દિક શુભેચ્છાઓ આશા પટેલ!* 🎉🎂', $wa->birthdayMessage($customer));
+        $this->assertStringContainsString('📅 *મારું બ્યુટી પાર્લર* માં તમારી આગલી અપોઇન્ટમેન્ટ બુક કરવાનો સમય', $wa->followUpMessage($customer));
+        $this->assertStringContainsString("*ખાસ ઑફર!*\n📲", $wa->template('offer'));
+        $this->assertStringEndsWith('_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_', $wa->template('offer'));
         $this->assertSame('મારું બ્યુટી પાર્લર તરફથી ટેસ્ટ મેસેજ: ઑટો WhatsApp બરાબર ચાલે છે.', $wa->testMessage());
 
-        // the owner's own text wins; an emptied template falls back to the Gujarati default
+        // the owner's own text wins; an emptied template falls back to the default
         (new SettingModel())->setValue('tpl_whatsapp_booking', 'Hi {customer_name}, booked on {date} at {time}.');
         $this->assertSame('Hi આશા પટેલ, booked on શનિવાર, 7 નવેમ્બર 2026 at સવારે 10:30.', $wa->bookingMessage($customer, $appt, $items));
         (new SettingModel())->setValue('tpl_whatsapp_booking', '');
-        $this->assertStringStartsWith('નમસ્તે આશા પટેલ', $wa->bookingMessage($customer, $appt, $items));
+        $this->assertStringStartsWith('💖 *નમસ્તે આશા પટેલ!*', $wa->bookingMessage($customer, $appt, $items));
+    }
+
+    public function testEmojiAndBoldMarkupSurviveStorageAndRendering(): void
+    {
+        $settings = new SettingModel();
+        $template = "🎁 *નમસ્તે {customer_name}!* _slot_ 💇‍♀️";
+        $settings->setValue('tpl_whatsapp_offer', $template);
+
+        // stored and read back byte for byte (SQLite here; MySQL needs utf8mb4, see Config\Database)
+        $this->assertSame($template, $settings->value('tpl_whatsapp_offer'));
+        $this->assertSame('🎁 *નમસ્તે આશા!* _slot_ 💇‍♀️', (new WhatsApp())->render($template, ['customer_name' => 'આશા']));
+
+        // the settings form shows the raw markup (esc() touches only < > & " ')
+        $this->assertSame($template, esc($template));
     }
 
     public function testWaMeLinkCarriesGujaratiTextIntact(): void
     {
         $wa      = new WhatsApp();
-        $message = "નમસ્તે આશા, કાલે સવારે 10:30 એ મળીએ!\nઆભાર";
+        $message = "💖 *નમસ્તે આશા!*\n📅 *તારીખ:* કાલે, સવારે 10:30 💇‍♀️\n_આભાર_";
         $link    = $wa->link('98765 43211', $message);
 
         $this->assertStringStartsWith('https://wa.me/919876543211?text=', $link);

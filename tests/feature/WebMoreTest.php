@@ -103,7 +103,11 @@ final class WebMoreTest extends CIUnitTestCase
         $page->assertStatus(200);
         $page->assertSee('Delicate');
         $page->assertSee('નવી બુકિંગ પર ઑટો WhatsApp');
-        $page->assertSee('નમસ્તે {customer_name}');
+        $page->assertSee('💖 *નમસ્તે {customer_name}!*'); // raw WhatsApp markup and emoji in the textarea
+
+        // emoji and markup round-trip through the form unchanged
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['tpl_whatsapp_offer' => "🎁 *ઑફર* _STOP_ {customer_name}"]))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_offer', 'value' => "🎁 *ઑફર* _STOP_ {customer_name}"]);
 
         // the auto-WhatsApp switch on the settings page (checkbox + hidden 0 fallback)
         $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['wa_auto_send' => '1', 'wa_send_from' => '08:30', 'wa_send_to' => '20:00']))->assertStatus(302);

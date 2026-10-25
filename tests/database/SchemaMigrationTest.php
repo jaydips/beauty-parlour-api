@@ -65,9 +65,10 @@ final class SchemaMigrationTest extends CIUnitTestCase
         $migration = new \App\Database\Migrations\GujaratiTemplateDefaults(\Config\Database::forge($this->db));
         $migration->up();
 
-        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_booking', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_booking']]);
-        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_reminder', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_reminder']]);
-        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => SettingsSeeder::DEFAULTS['tpl_whatsapp_birthday']]);
+        // 100001 writes the plain Gujarati texts (120001 upgrades them to the seeder's emoji texts next)
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_booking', 'value' => $english['tpl_whatsapp_booking'][1]]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_reminder', 'value' => $english['tpl_whatsapp_reminder'][1]]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $english['tpl_whatsapp_birthday'][1]]);
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_followup', 'value' => $customised]);
 
         // running it again changes nothing; down() restores the English texts it replaced
@@ -76,6 +77,46 @@ final class SchemaMigrationTest extends CIUnitTestCase
         $migration->down();
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_booking', 'value' => $english['tpl_whatsapp_booking'][0]]);
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_followup', 'value' => $customised]);
+    }
+
+    public function testEmojiTemplateMigrationUpgradesOnlyThePreviousDefaults(): void
+    {
+        require_once APPPATH . 'Database/Migrations/2026-10-25-100001_GujaratiTemplateDefaults.php';
+        require_once APPPATH . 'Database/Migrations/2026-10-25-120001_EmojiTemplateDefaults.php';
+
+        $plain = \App\Database\Migrations\GujaratiTemplateDefaults::REPLACEMENTS;
+        $emoji = \App\Database\Migrations\EmojiTemplateDefaults::REPLACEMENTS;
+
+        // the chain is consistent: what 100001 wrote is exactly what 120001 looks for, and the new
+        // texts are the seeder's defaults (so fresh and upgraded installations end up identical)
+        foreach ($plain as $key => $texts) {
+            $this->assertSame($texts[1], $emoji[$key][0], "{$key}: 120001 must match 100001's result");
+        }
+        foreach ($emoji as $key => $texts) {
+            $this->assertSame(SettingsSeeder::DEFAULTS[$key], $texts[1], "{$key}: seeder default");
+            $this->assertStringContainsString('*', $texts[1], "{$key}: WhatsApp bold markup");
+        }
+
+        $settings   = $this->db->table('settings');
+        $customised = "મારો પોતાનો મેસેજ {customer_name} 💖";
+
+        // an upgraded installation: four rows still at the plain Gujarati default, one edited by the owner
+        foreach (['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_offer'] as $key) {
+            $settings->where('key', $key)->update(['value' => $emoji[$key][0]]);
+        }
+        $settings->where('key', 'tpl_whatsapp_birthday')->update(['value' => $customised]);
+
+        $migration = new \App\Database\Migrations\EmojiTemplateDefaults(\Config\Database::forge($this->db));
+        $migration->up();
+
+        foreach (['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_offer'] as $key) {
+            $this->seeInDatabase('settings', ['key' => $key, 'value' => SettingsSeeder::DEFAULTS[$key]]);
+        }
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $customised]);
+
+        $migration->down();
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_offer', 'value' => $emoji['tpl_whatsapp_offer'][0]]);
+        $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_birthday', 'value' => $customised]);
     }
 
     public function testCustomerPhoneIsUnique(): void

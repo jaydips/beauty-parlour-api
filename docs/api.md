@@ -59,9 +59,10 @@ Unknown routes: `404 {"status":404,"error":"Not Found"}`.
   `reminder_lead_hours`, `followup_days`, `tpl_whatsapp_booking`, `tpl_whatsapp_reminder`,
   `tpl_whatsapp_followup`, `tpl_whatsapp_birthday`, `tpl_whatsapp_offer`, `wa_auto_send` (`"0"`/`"1"`),
   `wa_send_from`, `wa_send_to` (`HH:MM`). Templates accept `{customer_name} {parlour_name} {date}
-  {time} {services}`; their defaults are Gujarati and `{date}`/`{time}` render in Gujarati
-  ("શનિવાર, 25 ઑક્ટોબર 2026", "સવારે 10:30"). Setting a template to an empty string makes the
-  backend fall back to the Gujarati default.
+  {time} {services}`; their defaults are Gujarati with WhatsApp `*bold*` markup and emoji (the same
+  texts the Flutter app ships), and `{date}`/`{time}` render in Gujarati ("શનિવાર, 25 ઑક્ટોબર 2026",
+  "સવારે 10:30"). Values are stored and returned verbatim (UTF-8, `\n` line breaks, `*`/`_` kept).
+  Setting a template to an empty string makes the backend fall back to the default.
 
 Language of messages (2026-10-25): the backend's default locale is `gu`, so every human-readable
 `message`/`messages` text in error responses (validation, not found, conflicts, login errors) is
