@@ -135,6 +135,7 @@ final class ApiFlowTest extends CIUnitTestCase
         $types = array_column($this->json($done)['appointment']['reminders'], 'status', 'type');
         $this->assertSame('skipped', $types['appointment']);
         $this->assertSame('pending', $types['follow_up']);
+        $this->assertSame('pending', $types['review'], 'review request created on completion');
 
         // cancel the forced one with a reason
         $this->withHeaders($auth)->withBodyFormat('json')->patch("appointments/{$forcedId}/status", ['status' => 'cancelled', 'reason' => 'customer called'])->assertStatus(200);
@@ -155,8 +156,14 @@ final class ApiFlowTest extends CIUnitTestCase
         $this->assertSame(600, $d['dues']['total']);
         $this->assertSame(1, $d['counts']['customers']);
         $this->assertSame(2, $d['counts']['active_services']);
-        // the appointment reminder was skipped on completion and the forced booking's reminder was cancelled
-        $this->assertSame(0, $d['reminders_due']['count']);
+        // the appointment reminder was skipped on completion and the forced booking's reminder was cancelled;
+        // the review request of the completed appointment is due right away
+        $this->assertSame(1, $d['reminders_due']['count']);
+        $this->assertSame('review', $d['reminders_due']['list'][0]['type']);
+        $this->assertStringContainsString('Google', $d['reminders_due']['list'][0]['message']);
+        $reviewId = $d['reminders_due']['list'][0]['id'];
+        $this->withHeaders($auth)->post("reminders/{$reviewId}/sent")->assertStatus(200);
+        $this->assertSame(0, $this->json($this->withHeaders($auth)->get('dashboard'))['reminders_due']['count']);
 
         // a custom reminder due now shows up on the dashboard with a click-to-chat link
         $custom = $this->withHeaders($auth)->withBodyFormat('json')->post('reminders', ['customer_id' => $customerId, 'message' => 'Hello Asha, see you soon!', 'due_at' => Time::now()->toDateTimeString()]);
@@ -202,6 +209,16 @@ final class ApiFlowTest extends CIUnitTestCase
         $set = $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['parlour_name' => 'Delicate Beauty', 'reminder_lead_hours' => '12']);
         $set->assertStatus(200);
         $this->assertSame('Delicate Beauty', $this->json($set)['settings']['parlour_name']);
+
+        // review / social links are plain settings keys (blank by default, validated as URLs)
+        $this->assertSame('', $this->json($set)['settings']['google_review_url']);
+        $this->assertSame('', $this->json($set)['settings']['instagram_url']);
+        $this->assertContains('tpl_whatsapp_review', $this->json($set)['editable_keys']);
+        $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['google_review_url' => 'g.page/no-scheme'])->assertStatus(400);
+        $links = $this->withHeaders($auth)->withBodyFormat('json')->put('settings', ['google_review_url' => 'https://g.page/r/abc/review', 'instagram_url' => 'https://instagram.com/delicate']);
+        $links->assertStatus(200);
+        $this->assertSame('https://g.page/r/abc/review', $this->json($links)['settings']['google_review_url']);
+        $this->assertSame('https://instagram.com/delicate', $this->json($this->withHeaders($auth)->get('settings'))['settings']['instagram_url']);
     }
 
     /**

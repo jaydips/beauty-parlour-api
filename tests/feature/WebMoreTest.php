@@ -106,6 +106,15 @@ final class WebMoreTest extends CIUnitTestCase
         $page->assertSee('✅ *નમસ્તે {customer_name}!*'); // raw WhatsApp markup and emoji in the textarea
         $page->assertSee('📞 {parlour_phone}');
 
+        // review / social links: blank by default, validated, saved
+        $page->assertSee('name="google_review_url"', null);
+        $page->assertSee('name="instagram_url"', null);
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['google_review_url' => 'not a url']))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => '']);
+        $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['google_review_url' => 'https://g.page/r/abc/review', 'instagram_url' => 'https://instagram.com/delicate']))->assertStatus(302);
+        $this->seeInDatabase('settings', ['key' => 'google_review_url', 'value' => 'https://g.page/r/abc/review']);
+        $this->seeInDatabase('settings', ['key' => 'instagram_url', 'value' => 'https://instagram.com/delicate']);
+
         // emoji and markup round-trip through the form unchanged
         $this->withSession($this->ownerSession)->post('app/settings', $this->csrf(['tpl_whatsapp_offer' => "🎁 *ઑફર* _STOP_ {customer_name}"]))->assertStatus(302);
         $this->seeInDatabase('settings', ['key' => 'tpl_whatsapp_offer', 'value' => "🎁 *ઑફર* _STOP_ {customer_name}"]);

@@ -42,6 +42,12 @@ class SettingsSeeder extends Seeder
         'tpl_whatsapp_followup' => "🌸 *નમસ્તે {customer_name}!* તમારી છેલ્લી મુલાકાતને ઘણો સમય થયો.\n\n✨ આગલી અપોઇન્ટમેન્ટ બુક કરવા આ મેસેજનો જવાબ આપો અથવા ફોન કરો.\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
         'tpl_whatsapp_birthday' => "🎂 *નમસ્તે {customer_name}!* જન્મદિવસની હાર્દિક શુભેચ્છાઓ! 🎉\n\n💖 આ મહિને મુલાકાત લઈને પોતાને ખુશ કરો. ✨\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸",
         'tpl_whatsapp_offer'    => "🎁 *નમસ્તે {customer_name}!* આ અઠવાડિયે ખાસ ઑફર!\n\n✨ વધુ માહિતી માટે આ મેસેજનો જવાબ આપો.\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nકોઈ ફેરફાર કરવો હોય તો અમને જણાવશો. આભાર! 🌸\n_(ઑફર મેસેજ બંધ કરવા STOP લખો.)_",
+        // Review request after a completed appointment. {review_link} / {instagram_link} come from the two
+        // URL settings below; while they are blank the renderer puts a Gujarati hint there instead.
+        // The URLs stay outside *bold* on purpose: WhatsApp does not linkify bold text.
+        'tpl_whatsapp_review'   => "નમસ્તે *{customer_name}*, {parlour_name} ની મુલાકાત બદલ આભાર 🙏\n\n💅 *સર્વિસ:* {services}\n⭐ આપનો અનુભવ કેવો રહ્યો? Google પર review આપો:\n👉 {review_link}\n📸 Instagram પર અમને follow કરો:\n👉 {instagram_link}\n\n*{parlour_name}*\n📍 {parlour_address}\n📞 {parlour_phone}\n\nઆપનો અભિપ્રાય અમારા માટે મહત્વનો છે. આભાર! 🌸",
+        'google_review_url'     => '',
+        'instagram_url'         => '',
         // Automatic sending through the WhatsApp bridge (off until the owner links a number and switches it on)
         'wa_auto_send'          => '0',
         'wa_send_from'          => '09:00',

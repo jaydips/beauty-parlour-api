@@ -95,9 +95,24 @@ final class WebBookingTest extends CIUnitTestCase
         $list->assertSee('Meena');
 
         // complete + payment via the detail page forms
-        $this->withSession($this->ownerSession)->post("app/appointments/{$id}/status", $this->csrf(['status' => 'completed']))->assertStatus(302);
+        $done = $this->withSession($this->ownerSession)->post("app/appointments/{$id}/status", $this->csrf(['status' => 'completed']));
+        $done->assertStatus(302);
+        $done->assertSessionHas('success', lang('App.completed_review_ready'));
         $this->seeInDatabase('appointments', ['id' => $id, 'status' => 'completed']);
         $this->seeInDatabase('reminders', ['appointment_id' => $id, 'type' => 'follow_up', 'status' => 'pending']);
+
+        // the review request waits on the detail page as a pending reminder with the click-to-chat button
+        $this->seeInDatabase('reminders', ['appointment_id' => $id, 'type' => 'review', 'status' => 'pending']);
+        $review = (new \App\Models\ReminderModel())->where('appointment_id', $id)->where('type', 'review')->first();
+        $this->assertStringContainsString('Google પર review આપો', $review['message']);
+        $this->assertStringContainsString('Haircut, Facial', $review['message']);
+        $page = $this->withSession($this->ownerSession)->get("app/appointments/{$id}");
+        $page->assertSee('રિવ્યૂ વિનંતી');
+        $page->assertSee('https://wa.me/919000000002?text=' . rawurlencode($review['message']), null);
+
+        // completing again does not create a second review request
+        $this->withSession($this->ownerSession)->post("app/appointments/{$id}/status", $this->csrf(['status' => 'completed']))->assertStatus(302);
+        $this->assertSame(1, (new \App\Models\ReminderModel())->where('appointment_id', $id)->where('type', 'review')->countAllResults());
 
         $pay = $this->withSession($this->ownerSession)->post('app/payments', $this->csrf(['appointment_id' => (string) $id, 'amount' => '1000', 'method' => 'upi']));
         $pay->assertStatus(302);

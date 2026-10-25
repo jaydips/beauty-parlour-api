@@ -114,6 +114,36 @@ final class GujaratiFormatTest extends CIUnitTestCase
         $this->assertStringStartsWith('✅ *નમસ્તે આશા પટેલ!*', $wa->bookingMessage($customer, $appt, $items));
     }
 
+    public function testReviewMessageCarriesTheLinksOrGujaratiHints(): void
+    {
+        $wa       = new WhatsApp();
+        $settings = new SettingModel();
+        $customer = ['name' => 'આશા પટેલ', 'phone' => '9876543211'];
+        $appt     = ['starts_at' => '2026-11-07 10:30:00'];
+        $items    = [['service_name' => 'Hair Spa']];
+
+        // links not configured yet: hints instead, so the owner notices before sending
+        $message = $wa->reviewMessage($customer, $appt, $items);
+        $this->assertStringStartsWith('નમસ્તે *આશા પટેલ*, મારું બ્યુટી પાર્લર ની મુલાકાત બદલ આભાર 🙏', $message);
+        $this->assertStringContainsString("💅 *સર્વિસ:* Hair Spa\n⭐ આપનો અનુભવ કેવો રહ્યો? Google પર review આપો:\n👉 (સેટિંગ્સમાં Google review લિંક ઉમેરો)\n📸 Instagram પર અમને follow કરો:\n👉 (સેટિંગ્સમાં Instagram લિંક ઉમેરો)", $message);
+        $this->assertStringEndsWith('આપનો અભિપ્રાય અમારા માટે મહત્વનો છે. આભાર! 🌸', $message);
+
+        $settings->setValue('google_review_url', 'https://g.page/r/abc123/review');
+        $settings->setValue('instagram_url', 'https://instagram.com/delicate_parlour');
+        $settings->setValue('parlour_phone', '9033319266');
+        $message = $wa->reviewMessage($customer, $appt, $items);
+        $this->assertStringContainsString("👉 https://g.page/r/abc123/review\n📸 Instagram પર અમને follow કરો:\n👉 https://instagram.com/delicate_parlour", $message);
+        $this->assertStringContainsString("*મારું બ્યુટી પાર્લર*\n📞 9033319266", $message, 'empty address line dropped, phone kept');
+        $this->assertDoesNotMatchRegularExpression('/\*https?:/', $message, 'URLs are never inside bold');
+        $this->assertStringNotContainsString('{', $message);
+
+        // the URL settings are validated (empty allowed, otherwise http(s) without spaces)
+        $this->assertNull(SettingModel::validateValue('google_review_url', ''));
+        $this->assertNull(SettingModel::validateValue('instagram_url', 'https://instagram.com/x'));
+        $this->assertNotNull(SettingModel::validateValue('google_review_url', 'g.page/r/abc'));
+        $this->assertNotNull(SettingModel::validateValue('instagram_url', 'https://insta gram.com'));
+    }
+
     public function testRenderDropsOnlyDecorationLinesLeftByEmptyPlaceholders(): void
     {
         $wa   = new WhatsApp();

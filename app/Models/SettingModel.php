@@ -67,6 +67,7 @@ class SettingModel extends Model
             'timezone'                                             => in_array($value, timezone_identifiers_list(), true) ? null : lang('App.v_timezone'),
             'wa_auto_send'                                         => in_array($value, ['0', '1'], true) ? null : lang('App.v_zero_one'),
             'wa_send_from', 'wa_send_to'                           => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) ? null : lang('App.v_time_hhmm'),
+            'google_review_url', 'instagram_url'                   => ($value === '' || (preg_match('#^https?://\S+$#i', $value) && mb_strlen($value) <= 500)) ? null : lang('App.v_url'),
             default                                                => mb_strlen($value) <= 2000 ? null : lang('App.v_too_long'),
         };
     }

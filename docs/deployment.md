@@ -166,6 +166,10 @@ What changes on the server with this release, in addition to the steps above:
   line; `{date}` as dd/mm/yyyy), same "untouched defaults only" rule. `/install/migrate` now also
   runs `ServicesSeeder` on every deploy: 85 standard services are inserted the first time
   (`services_seeded.inserted` in its JSON answer), later deploys skip existing names.
+- Fourth release: review request after a completed appointment. The seeder adds the settings
+  `tpl_whatsapp_review`, `google_review_url` and `instagram_url` (blank; the owner fills the two
+  links on *સેટિંગ્સ → રિવ્યૂ અને સોશિયલ લિંક*). No migration: `reminders.type` / `messages.type`
+  are plain VARCHAR columns, the new value `review` needs no schema change.
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

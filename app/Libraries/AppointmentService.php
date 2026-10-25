@@ -283,6 +283,7 @@ class AppointmentService
             $this->reminders->builder()->where('appointment_id', $id)->where('type', 'appointment')->where('status', 'pending')
                 ->update(['status' => 'skipped', 'updated_at' => $stamp]);
             service('outbox')->cancelForAppointment($id, ['booking', 'appointment']);
+            $this->scheduleReview($id);
             $this->scheduleFollowUp($id);
         }
 
@@ -391,6 +392,37 @@ class AppointmentService
             'due_at'         => $due->toDateTimeString(),
             'channel'        => 'whatsapp',
             'message'        => $message,
+            'status'         => 'pending',
+        ]);
+
+        return $id === false ? null : (int) $id;
+    }
+
+    /**
+     * Review request (Google review + Instagram links) due right away when an appointment is completed:
+     * a pending "review" reminder with the owner's wa.me button, queued by the outbox too when automatic
+     * sending is on. Once per appointment; only for customers who opted in.
+     */
+    public function scheduleReview(int $appointmentId): ?int
+    {
+        $appointment = $this->appointments->find($appointmentId);
+        $customer    = $appointment ? $this->customers->find((int) $appointment['customer_id']) : null;
+
+        if ($appointment === null || $customer === null || (int) $customer['whatsapp_opt_in'] !== 1) {
+            return null;
+        }
+
+        if ($this->reminders->where('appointment_id', $appointmentId)->where('type', 'review')->countAllResults() > 0) {
+            return null;
+        }
+
+        $id = $this->reminders->insert([
+            'customer_id'    => (int) $customer['id'],
+            'appointment_id' => $appointmentId,
+            'type'           => 'review',
+            'due_at'         => Time::now()->toDateTimeString(),
+            'channel'        => 'whatsapp',
+            'message'        => service('whatsapp')->reviewMessage($customer, $appointment, $this->items->forAppointment($appointmentId)),
             'status'         => 'pending',
         ]);
 

@@ -98,6 +98,7 @@ class WhatsApp
             'birthday'    => 'tpl_whatsapp_birthday',
             'booking'     => 'tpl_whatsapp_booking',
             'offer'       => 'tpl_whatsapp_offer',
+            'review'      => 'tpl_whatsapp_review',
             default       => null,
         };
 
@@ -122,6 +123,9 @@ class WhatsApp
             'parlour_name'    => (string) ($this->settings->value('parlour_name') ?: SettingsSeeder::DEFAULTS['parlour_name']),
             'parlour_address' => trim((string) $this->settings->value('parlour_address', '')),
             'parlour_phone'   => trim((string) $this->settings->value('parlour_phone', '')),
+            // review / social links: a Gujarati hint while the owner has not set them, so it shows before sending
+            'review_link'     => trim((string) $this->settings->value('google_review_url', '')) ?: lang('App.review_link_missing'),
+            'instagram_link'  => trim((string) $this->settings->value('instagram_url', '')) ?: lang('App.instagram_link_missing'),
         ];
     }
 
@@ -169,6 +173,16 @@ class WhatsApp
     public function followUpMessage(array $customer): string
     {
         return $this->render($this->template('follow_up'), $this->baseVars($customer));
+    }
+
+    /**
+     * Review request after a completed appointment: services done, Google review and Instagram links.
+     *
+     * @param list<array<string, mixed>> $items
+     */
+    public function reviewMessage(array $customer, array $appointment, array $items): string
+    {
+        return $this->render($this->template('review'), $this->baseVars($customer) + $this->appointmentVars($appointment, $items));
     }
 
     public function birthdayMessage(array $customer): string

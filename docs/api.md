@@ -58,8 +58,11 @@ Unknown routes: `404 {"status":404,"error":"Not Found"}`.
   `country_code`, `currency`, `timezone`, `opening_hours` (JSON), `slot_minutes`,
   `reminder_lead_hours`, `followup_days`, `tpl_whatsapp_booking`, `tpl_whatsapp_reminder`,
   `tpl_whatsapp_followup`, `tpl_whatsapp_birthday`, `tpl_whatsapp_offer`, `wa_auto_send` (`"0"`/`"1"`),
-  `wa_send_from`, `wa_send_to` (`HH:MM`). Templates accept `{customer_name} {parlour_name}
-  {parlour_address} {parlour_phone} {date} {time} {services}`; their defaults are Gujarati with
+  `wa_send_from`, `wa_send_to` (`HH:MM`), `tpl_whatsapp_review`, `google_review_url`,
+  `instagram_url` (both blank by default; `http(s)://` without spaces, or empty; the review template
+  renders `{review_link}` / `{instagram_link}` from them, or a Gujarati "(સેટિંગ્સમાં … લિંક ઉમેરો)"
+  hint while blank). Templates accept `{customer_name} {parlour_name}
+  {parlour_address} {parlour_phone} {date} {time} {services} {review_link} {instagram_link}`; their defaults are Gujarati with
   WhatsApp `*bold*` markup and emoji (greeting + status, detail lines, parlour signature, closing
   line). `{date}` renders as `dd/mm/yyyy`, `{time}` in Gujarati ("સવારે 10:30"); a line that only
   carried an empty placeholder (no address or phone configured) is dropped from the message.
@@ -176,4 +179,10 @@ Everything here needs the bearer token. The switch is a setting: `PUT /settings 
 | GET | `/campaigns/{id}` | | campaign, `counts`, per-recipient `messages` |
 | POST | `/campaigns/{id}/cancel` | | cancels the queued messages |
 
-Message row: `id, customer_id, appointment_id, reminder_id, campaign_id, phone, type (booking|appointment|follow_up|birthday|offer|custom), body, status (queued|sent|failed|cancelled), attempts, last_error, scheduled_at, sent_at, wa_id, customer {id, name, phone}`.
+Message row: `id, customer_id, appointment_id, reminder_id, campaign_id, phone, type (booking|appointment|follow_up|birthday|review|offer|custom), body, status (queued|sent|failed|cancelled), attempts, last_error, scheduled_at, sent_at, wa_id, customer {id, name, phone}`.
+
+Reminder `type` values: `appointment`, `follow_up`, `birthday`, `review`, `custom`. A `review`
+reminder (template `tpl_whatsapp_review`, due immediately) is created when an appointment is marked
+`completed` for an opted-in customer, once per appointment: it appears in `GET /reminders` and on
+the dashboard with its `wa_link` for manual sending, and the outbox queues it like any other due
+reminder when automatic sending is on.

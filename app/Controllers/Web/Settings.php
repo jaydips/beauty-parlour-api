@@ -32,6 +32,9 @@ class Settings extends WebController
         'tpl_whatsapp_followup',
         'tpl_whatsapp_birthday',
         'tpl_whatsapp_offer',
+        'tpl_whatsapp_review',
+        'google_review_url',
+        'instagram_url',
     ];
 
     /**

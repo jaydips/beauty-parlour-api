@@ -192,6 +192,7 @@ return [
     'reminder_type_follow_up'   => 'ફોલો-અપ',
     'reminder_type_birthday'    => 'જન્મદિવસ',
     'reminder_type_custom'      => 'કસ્ટમ',
+    'reminder_type_review'      => 'રિવ્યૂ વિનંતી',
 
     'method_cash'  => 'રોકડ',
     'method_upi'   => 'UPI',
@@ -209,6 +210,7 @@ return [
     'msg_type_birthday'    => 'જન્મદિવસ',
     'msg_type_offer'       => 'ઑફર',
     'msg_type_custom'      => 'કસ્ટમ',
+    'msg_type_review'      => 'રિવ્યૂ વિનંતી',
 
     'campaign_status_queued'    => 'મોકલાઈ રહ્યું છે',
     'campaign_status_done'      => 'પૂર્ણ',
@@ -324,10 +326,18 @@ return [
     'setting_tpl_whatsapp_followup' => 'મેસેજ નમૂનો: ફોલો-અપ',
     'setting_tpl_whatsapp_birthday' => 'મેસેજ નમૂનો: જન્મદિવસ',
     'setting_tpl_whatsapp_offer'    => 'મેસેજ નમૂનો: ઑફર (નવી બ્રોડકાસ્ટમાં પહેલેથી ભરાય)',
+    'setting_tpl_whatsapp_review'   => 'મેસેજ નમૂનો: રિવ્યૂ વિનંતી (અપોઇન્ટમેન્ટ પૂરી થયા પછી)',
+    'setting_google_review_url'     => 'Google review લિંક (Google My Business)',
+    'setting_instagram_url'         => 'Instagram પેજ લિંક',
+    'review_link_missing'           => '(સેટિંગ્સમાં Google review લિંક ઉમેરો)',
+    'instagram_link_missing'        => '(સેટિંગ્સમાં Instagram લિંક ઉમેરો)',
+    'links_heading'                 => 'રિવ્યૂ અને સોશિયલ લિંક',
+    'links_help'                    => 'અપોઇન્ટમેન્ટ પૂરી થાય એટલે ગ્રાહકને રિવ્યૂ મેસેજ તૈયાર થાય છે જેમાં આ લિંક જાય છે. ખાલી હોય તો મેસેજમાં "(સેટિંગ્સમાં … લિંક ઉમેરો)" દેખાશે.',
+    'completed_review_ready'        => 'સ્ટેટસ: પૂરું. રિવ્યૂ મેસેજ તૈયાર છે: નીચે રિમાઇન્ડરમાં WhatsApp બટનથી મોકલો.',
     'setting_wa_auto_send'          => 'નવી બુકિંગ પર ઑટો WhatsApp',
     'setting_wa_send_from'          => 'ઑટો WhatsApp: આ સમયથી',
     'setting_wa_send_to'            => 'ઑટો WhatsApp: આ સમય સુધી',
-    'template_placeholders'         => 'નમૂનામાં વાપરી શકાય: {customer_name} {parlour_name} {parlour_address} {parlour_phone} {date} {time} {services}. તારીખ dd/mm/yyyy (દા.ત. 25/10/2026) અને સમય ગુજરાતીમાં (દા.ત. "સવારે 10:30") ભરાય છે. સરનામું કે ફોન ખાલી હોય તો એ લાઇન મેસેજમાંથી નીકળી જાય છે.',
+    'template_placeholders'         => 'નમૂનામાં વાપરી શકાય: {customer_name} {parlour_name} {parlour_address} {parlour_phone} {date} {time} {services} {review_link} {instagram_link}. તારીખ dd/mm/yyyy (દા.ત. 25/10/2026) અને સમય ગુજરાતીમાં (દા.ત. "સવારે 10:30") ભરાય છે. સરનામું કે ફોન ખાલી હોય તો એ લાઇન મેસેજમાંથી નીકળી જાય છે. લિંક *bold* માં ન મૂકવી (WhatsApp પછી લિંક ખોલતું નથી).',
     'settings_saved'                => 'સેટિંગ્સ સાચવ્યાં.',
     'templates_heading'             => 'WhatsApp મેસેજ નમૂના',
     'general_heading'               => 'પાર્લરની માહિતી',
@@ -340,6 +350,7 @@ return [
     'v_zero_one'     => '0 અથવા 1 હોવું જોઈએ.',
     'v_time_hhmm'    => 'સમય HH:MM (24 કલાક) ફોર્મેટમાં લખો.',
     'v_too_long'     => 'ખૂબ લાંબું (વધુમાં વધુ 2000 અક્ષર).',
+    'v_url'          => 'માન્ય લિંક લખો (https:// થી શરૂ થતી, space વગર).',
 
     // ---- auto WhatsApp card on the settings page --------------------------------------------
     'auto_wa_title'              => 'નવી બુકિંગ પર ઑટો WhatsApp',

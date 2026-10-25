@@ -14,7 +14,7 @@ use CodeIgniter\Model;
  */
 class ReminderModel extends Model
 {
-    public const TYPES    = ['appointment', 'follow_up', 'birthday', 'custom'];
+    public const TYPES    = ['appointment', 'follow_up', 'birthday', 'review', 'custom'];
     public const STATUSES = ['pending', 'sent', 'skipped', 'cancelled'];
 
     protected $table         = 'reminders';
@@ -27,7 +27,7 @@ class ReminderModel extends Model
     protected $validationRules = [
         'customer_id'    => 'required|is_natural_no_zero',
         'appointment_id' => 'permit_empty|is_natural_no_zero',
-        'type'           => 'required|in_list[appointment,follow_up,birthday,custom]',
+        'type'           => 'required|in_list[appointment,follow_up,birthday,review,custom]',
         'due_at'         => 'required|valid_date[Y-m-d H:i:s]',
         'channel'        => 'permit_empty|in_list[whatsapp]',
         'message'        => 'required|string',

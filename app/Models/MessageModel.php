@@ -14,7 +14,7 @@ use CodeIgniter\Model;
  */
 class MessageModel extends Model
 {
-    public const TYPES    = ['booking', 'appointment', 'follow_up', 'birthday', 'offer', 'custom'];
+    public const TYPES    = ['booking', 'appointment', 'follow_up', 'birthday', 'review', 'offer', 'custom'];
     public const STATUSES = ['queued', 'sent', 'failed', 'cancelled'];
 
     protected $table         = 'messages';
@@ -30,7 +30,7 @@ class MessageModel extends Model
         'reminder_id'    => 'permit_empty|is_natural_no_zero',
         'campaign_id'    => 'permit_empty|is_natural_no_zero',
         'phone'          => 'required|regex_match[/^[0-9]{10}$/]',
-        'type'           => 'required|in_list[booking,appointment,follow_up,birthday,offer,custom]',
+        'type'           => 'required|in_list[booking,appointment,follow_up,birthday,review,offer,custom]',
         'body'           => 'required|string',
         'status'         => 'permit_empty|in_list[queued,sent,failed,cancelled]',
         'attempts'       => 'permit_empty|is_natural',

@@ -198,7 +198,12 @@ class Appointments extends WebController
             return $this->back('app/appointments')->with('error', $e->getMessage());
         }
 
-        return redirect()->to(site_url('app/appointments/' . $id))->with('success', lang('App.status_changed', [status_label($status)]));
+        // completed: the review request is waiting on the detail page as a pending reminder with the WhatsApp button
+        $reviewReady = $status === AppointmentModel::STATUS_COMPLETED
+            && (new \App\Models\ReminderModel())->where('appointment_id', $id)->where('type', 'review')->where('status', 'pending')->countAllResults() > 0;
+
+        return redirect()->to(site_url('app/appointments/' . $id))
+            ->with('success', $reviewReady ? lang('App.completed_review_ready') : lang('App.status_changed', [status_label($status)]));
     }
 
     public function delete(int $id): RedirectResponse

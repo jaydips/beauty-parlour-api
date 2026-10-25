@@ -65,8 +65,13 @@ What gets queued, and when:
   queued reminder for the old slot; cancelling or marking no-show cancels every queued message of
   the appointment; completing it cancels a queued confirmation/reminder. Sent messages are never
   touched, and nothing is queued retroactively when the switch is turned on later.
+- **Review request**: marking an appointment `completed` creates a pending `review` reminder due
+  right away (template `tpl_whatsapp_review` with `{review_link}` = `google_review_url` and
+  `{instagram_link}` = `instagram_url`, Gujarati hints while those settings are blank). The owner
+  sees it on the appointment page and the dashboard with the wa.me button; with automatic sending
+  on, the cron queues it like any other due reminder.
 - **Reminders**: every pending reminder whose `due_at` has passed (appointment reminders created at
-  booking time, follow-ups and birthdays created by `spark reminders:generate`) becomes one message
+  booking time, follow-ups and birthdays created by `spark reminders:generate`, review requests) becomes one message
   the first time `whatsapp:send` sees it. When the bridge confirms delivery the reminder is marked
   `sent`; the owner's manual wa.me button stays available meanwhile.
 - **Offers**: a campaign queues one personalised message per recipient (`{customer_name}`,

@@ -17,11 +17,15 @@ $field    = static function (string $key, string $value): string {
     if ($key === 'parlour_phone' || $key === 'country_code') {
         return '<input id="' . $id . '" name="' . $id . '" type="tel" inputmode="numeric" value="' . esc($value) . '">';
     }
+    if ($key === 'google_review_url' || $key === 'instagram_url') {
+        return '<input id="' . $id . '" name="' . $id . '" type="url" inputmode="url" placeholder="https://" value="' . esc($value) . '">';
+    }
 
     return '<input id="' . $id . '" name="' . $id . '" type="text" value="' . esc($value) . '">';
 };
 $general   = ['parlour_name', 'parlour_phone', 'parlour_address', 'country_code', 'slot_minutes', 'reminder_lead_hours', 'followup_days'];
-$templates = ['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_birthday', 'tpl_whatsapp_offer'];
+$links     = ['google_review_url', 'instagram_url'];
+$templates = ['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_followup', 'tpl_whatsapp_birthday', 'tpl_whatsapp_review', 'tpl_whatsapp_offer'];
 ?>
 
 <h1><?= esc(lang('App.title_settings')) ?></h1>
@@ -58,6 +62,13 @@ $templates = ['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_fol
 
     <h2><?= esc(lang('App.general_heading')) ?></h2>
     <?php foreach ($general as $key): ?>
+        <label for="<?= esc($key) ?>"><?= esc($fields[$key]) ?></label>
+        <?= $field($key, (string) old($key, $values[$key] ?? '')) ?>
+    <?php endforeach ?>
+
+    <h2><?= esc(lang('App.links_heading')) ?></h2>
+    <p class="muted"><?= esc(lang('App.links_help')) ?></p>
+    <?php foreach ($links as $key): ?>
         <label for="<?= esc($key) ?>"><?= esc($fields[$key]) ?></label>
         <?= $field($key, (string) old($key, $values[$key] ?? '')) ?>
     <?php endforeach ?>
