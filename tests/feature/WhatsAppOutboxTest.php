@@ -69,6 +69,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
     protected $seed        = SettingsSeeder::class;
 
     private FakeWhatsAppBridge $bridge;
+    private string $uploadsDir;
     private array $ownerSession = ['owner_id' => 1, 'owner_name' => 'Jalpa Patel'];
 
     protected function setUp(): void
@@ -76,17 +77,178 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         parent::setUp();
         (new OwnerModel())->saveOwner(['name' => 'Jalpa Patel', 'phone' => '9033319266', 'password_hash' => OwnerAuth::hashPassword('secret123')]);
 
+        // CIUnitTestCase resets config objects between tests but not shared services: build the outbox and
+        // its helpers afresh so they see this test's config and the fake bridge (never a stale instance)
+        Services::resetSingle('outbox', 'whatsapp', 'campaignImage', 'appointments', 'dashboard', 'superglobals');
         $this->bridge = new FakeWhatsAppBridge();
         Services::injectMock('whatsappBridge', $this->bridge);
 
-        $config                     = config('WhatsApp');
-        $config->gapSeconds         = 0;
-        $config->campaignGapSeconds = 0;
+        $config                        = config('WhatsApp');
+        $config->gapSeconds            = 0;
+        $config->gapSecondsMax         = 0;
+        $config->campaignGapSeconds    = 0;
+        $config->campaignGapSecondsMax = 0;
+        $config->campaignWarmupHours   = 0;
+        $config->uploadsDir            = $this->uploadsDir = WRITEPATH . 'uploads-test-' . bin2hex(random_bytes(3));
+
+        // services that read Config\WhatsApp get exactly this instance (a request may otherwise resolve
+        // an older cached config object from a previous test)
+        Services::injectMock('campaignImage', new \App\Libraries\CampaignImage($config));
+        Services::injectMock('outbox', new \App\Libraries\Outbox(config: $config));
 
         $settings = new SettingModel();
         $settings->setValue('wa_auto_send', '1');
         $settings->setValue('wa_send_from', '00:00');
         $settings->setValue('wa_send_to', '00:00'); // equal = any time
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_dir($this->uploadsDir)) {
+            array_map('unlink', glob($this->uploadsDir . '/*') ?: []);
+            rmdir($this->uploadsDir);
+        }
+        $_FILES = [];
+        Services::resetSingle('superglobals');
+        parent::tearDown();
+    }
+
+    public function testCompletingAnAppointmentFromTheApiSendsTheReviewMessageThroughTheOutbox(): void
+    {
+        $cid       = (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
+        $serviceId = (new ServiceModel())->insert(['name' => 'Hair Spa', 'price' => 800, 'duration_minutes' => 60, 'is_active' => 1]);
+        $a         = service('appointments')->create(['customer_id' => $cid, 'starts_at' => Time::now()->subHours(2)->toDateTimeString()], [['service_id' => $serviceId]]);
+        (new MessageModel())->builder()->where('appointment_id', $a['id'])->update(['status' => 'sent', 'sent_at' => Time::now()->toDateTimeString()]); // booking confirmation already out
+
+        $login = $this->withBodyFormat('json')->post('auth/login', ['phone' => '9033319266', 'password' => 'secret123']);
+        $token = json_decode($login->getJSON(), true, 512, JSON_THROW_ON_ERROR)['token'];
+        $done  = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->withBodyFormat('json')->patch("appointments/{$a['id']}/status", ['status' => 'completed']);
+        $done->assertStatus(200);
+        $this->seeInDatabase('reminders', ['appointment_id' => $a['id'], 'type' => 'review', 'status' => 'pending']);
+
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('reminders queued 1, sent 1, failed 0', $out);
+        $this->assertSame('9876543211', $this->bridge->sent[0]['to']);
+        $this->assertStringStartsWith("🌸 મારું બ્યુટી પાર્લર 🌸\n\nપ્રિય *Asha* ❤️", $this->bridge->sent[0]['text']);
+        $this->assertArrayNotHasKey('image_url', $this->bridge->sent[0]);
+        $this->seeInDatabase('messages', ['appointment_id' => $a['id'], 'type' => 'review', 'status' => 'sent']);
+        $this->seeInDatabase('reminders', ['appointment_id' => $a['id'], 'type' => 'review', 'status' => 'sent']);
+    }
+
+    public function testDailyCapDefersTheRestAndJitterSpreadsCampaignRecipients(): void
+    {
+        $customers = new CustomerModel();
+        for ($i = 1; $i <= 4; $i++) {
+            $customers->insert(['name' => "C{$i}", 'phone' => '987654321' . $i, 'whatsapp_opt_in' => 1]);
+        }
+        (new SettingModel())->setValue('wa_daily_cap', '3');
+
+        // campaign gaps are random inside [min, max]
+        $config = config('WhatsApp');
+        $config->campaignGapSeconds    = 30;
+        $config->campaignGapSecondsMax = 90;
+        $start  = Time::parse('2026-11-01 10:00:00');
+        $result = service('outbox')->createCampaign('Diwali', 'Hi {customer_name}', 'all', null, $start);
+        $this->assertSame(4, $result['recipients']);
+        $this->seeInDatabase('campaigns', ['id' => $result['id'], 'scheduled_at' => '2026-11-01 10:00:00']);
+        $times = array_column((new MessageModel())->where('campaign_id', $result['id'])->orderBy('id', 'ASC')->findAll(), 'scheduled_at');
+        $this->assertSame('2026-11-01 10:00:00', $times[0], 'first recipient at the scheduled start');
+        for ($i = 1; $i < 4; $i++) {
+            $gap = Time::parse($times[$i])->getTimestamp() - Time::parse($times[$i - 1])->getTimestamp();
+            $this->assertGreaterThanOrEqual(30, $gap);
+            $this->assertLessThanOrEqual(90, $gap);
+        }
+
+        // nothing goes out before the scheduled start ...
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('sent 0', $out);
+        $this->assertCount(0, $this->bridge->sent);
+
+        // ... then at most the daily cap: 3 sent, the 4th waits for tomorrow
+        $config->campaignGapSeconds = $config->campaignGapSecondsMax = 0;
+        $summary = service('outbox')->process(Time::parse('2026-11-01 12:00:00'));
+        $this->assertSame(3, $summary['sent']);
+        $this->assertSame(1, $summary['deferred']);
+        $summary = service('outbox')->process(Time::parse('2026-11-01 12:01:00'));
+        $this->assertSame('daily_cap', $summary['skipped']);
+        $this->assertSame(0, $summary['sent']);
+        $this->assertSame(1, (new MessageModel())->where('status', 'queued')->countAllResults());
+        $this->assertSame(3, service('outbox')->sentToday(Time::now()));
+    }
+
+    public function testOfferBroadcastsWaitForTheLinkWarmupButReminderMessagesDoNot(): void
+    {
+        $config = config('WhatsApp');
+        $config->campaignWarmupHours = 24;
+        $cid = (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
+        (new ReminderModel())->insert(['customer_id' => $cid, 'type' => 'custom', 'due_at' => Time::now()->subMinutes(1)->toDateTimeString(), 'channel' => 'whatsapp', 'message' => 'Hi', 'status' => 'pending']);
+        service('outbox')->createCampaign('Offer', 'Deal {customer_name}', 'all', null);
+
+        // first run after linking: the link time is recorded, the reminder goes, the offer waits
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('sent 1, failed 0, deferred 1 (campaign_warmup)', $out);
+        $this->assertSame('Hi', $this->bridge->sent[0]['text']);
+        $this->assertNotNull(service('outbox')->linkedSince());
+
+        // 24 hours later the offer goes out
+        (new SettingModel())->setValue('wa_linked_since', Time::now()->subHours(25)->toDateTimeString());
+        $this->assertTrue(service('outbox')->campaignsAllowed(Time::now()));
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('sent 1, failed 0, deferred 0', $out);
+        $this->assertSame('Deal Asha', $this->bridge->sent[1]['text']);
+
+        // unlinking forgets the link time; a bridge that reports "not linked" does too
+        service('outbox')->forgetLink();
+        $this->assertNull(service('outbox')->linkedSince());
+        $this->assertFalse(service('outbox')->campaignsAllowed(Time::now()));
+    }
+
+    public function testCampaignWithImageIsStoredResizedAndSentAsCaptionedPicture(): void
+    {
+        (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
+
+        // a 2400x1200 PNG upload -> 1600x800 JPEG inside the uploads dir
+        $png = tempnam(sys_get_temp_dir(), 'bp') . '.png';
+        $im  = imagecreatetruecolor(2400, 1200);
+        imagefill($im, 0, 0, imagecolorallocate($im, 200, 50, 120));
+        imagepng($im, $png);
+        imagedestroy($im);
+        $login = $this->withBodyFormat('json')->post('auth/login', ['phone' => '9033319266', 'password' => 'secret123']);
+        $token = json_decode($login->getJSON(), true, 512, JSON_THROW_ON_ERROR)['token'];
+
+        // the request reads uploads from the superglobals service, which snapshots $_FILES when created
+        $_FILES = ['image' => ['name' => 'offer.png', 'type' => 'image/png', 'tmp_name' => $png, 'error' => UPLOAD_ERR_OK, 'size' => filesize($png)]];
+        Services::resetSingle('superglobals');
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->post('campaigns', ['title' => 'Diwali', 'body' => 'Hi {customer_name}', 'audience' => 'all', 'scheduled_at' => '2026-11-01 10:00:00']);
+        $this->assertSame(201, $res->response()->getStatusCode(), (string) $res->getJSON());
+        $json = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $id   = (int) $json['campaign']['id'];
+        $this->assertSame(base_url('uploads/campaigns/' . $id . '.jpg'), $json['campaign']['image_url']);
+        $this->assertStringStartsWith('http', $json['campaign']['image_url']);
+        $this->assertSame('2026-11-01 10:00:00', $json['campaign']['scheduled_at']);
+
+        $this->assertSame($this->uploadsDir, service('campaignImage')->dir(), 'the request used this test\'s uploads directory');
+        $file = $this->uploadsDir . DIRECTORY_SEPARATOR . $id . '.jpg';
+        $this->assertFileExists($file);
+        [$w, $h, $type] = getimagesize($file);
+        $this->assertSame([1600, 800, IMAGETYPE_JPEG], [$w, $h, $type]);
+        $this->seeInDatabase('campaigns', ['id' => $id, 'image_path' => 'uploads/campaigns/' . $id . '.jpg']);
+
+        // list and detail carry image_url; the bridge gets the picture with the text as caption
+        $list = json_decode($this->withHeaders(['Authorization' => 'Bearer ' . $token])->get('campaigns')->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame($json['campaign']['image_url'], $list['campaigns'][0]['image_url']);
+        $summary = service('outbox')->process(Time::parse('2026-11-01 10:00:00'));
+        $this->assertSame(1, $summary['sent']);
+        $this->assertSame(['to' => '9876543211', 'text' => 'Hi Asha', 'image_url' => $json['campaign']['image_url']], $this->bridge->sent[0]);
+
+        // bad uploads are refused before anything is queued
+        file_put_contents($png, 'not an image');
+        $_FILES['image']['size'] = filesize($png);
+        Services::resetSingle('superglobals');
+        $bad = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->post('campaigns', ['title' => 'Bad', 'body' => 'x', 'audience' => 'all']);
+        $bad->assertStatus(400);
+        $this->assertSame(1, (new \App\Models\CampaignModel())->countAllResults());
+        unlink($png);
     }
 
     public function testBookingConfirmationIsQueuedOnlyWhenAutoSendIsOn(): void
@@ -262,6 +424,11 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertTrue($json['bridge']['registered']);
         $this->assertSame('919033319266', $json['bridge']['me']);
         $this->assertFalse($json['auto_send']);
+        $this->assertSame(150, $json['pacing']['daily_cap']);
+        $this->assertSame(0, $json['pacing']['sent_today']);
+        $this->assertSame([0, 0], $json['pacing']['gap_seconds'], 'setUp zeroes the gaps; production defaults are [4, 12]');
+        $this->assertSame(8, $json['pacing']['per_run']);
+        $this->assertArrayHasKey('campaigns_allowed', $json['pacing']);
 
         $cid = (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
 

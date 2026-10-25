@@ -132,3 +132,6 @@ _modules/*
 # SQLite backups written by `php spark db:backup` (data, never commit)
 /writable/backups/*
 !/writable/backups/index.html
+
+# campaign pictures live in the web document root (uploads/campaigns/<id>.jpg), never in git
+/public/uploads/

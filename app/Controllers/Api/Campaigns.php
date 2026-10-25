@@ -7,16 +7,21 @@ namespace App\Controllers\Api;
 use App\Models\CampaignModel;
 use App\Models\MessageModel;
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\I18n\Time;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Offers / announcements sent to many customers through the WhatsApp bridge.
- *   GET  /campaigns?page=
+ * Offer / announcement broadcasts for the Flutter app.
+ *   GET  /campaigns?page=                                           list (each row carries image_url)
  *   GET  /campaigns/preview?audience=all|recent|inactive&days=90   recipient count + sample names
- *   POST /campaigns {title, body, audience, days?}                  creates and queues one message per recipient
+ *   POST /campaigns {title, body, audience, days?, scheduled_at?}   JSON, or multipart/form-data with an
+ *                                                                   optional `image` file (jpeg/png/webp <= 2 MB,
+ *                                                                   stored as JPEG, sent with every message)
  *   GET  /campaigns/{id}                                            campaign + counts + per-recipient messages
  *   POST /campaigns/{id}/cancel
- * Body placeholders: {customer_name}, {parlour_name}. Nothing goes out while settings.wa_auto_send is "0".
+ * Body placeholders: {customer_name}, {parlour_name}, {parlour_address}, {parlour_phone}, ...
+ * Nothing goes out while settings.wa_auto_send is "0", before scheduled_at, or before the link warm-up.
  */
 class Campaigns extends ApiController
 {
@@ -27,7 +32,7 @@ class Campaigns extends ApiController
 
         $rows = $model->orderBy('id', 'DESC')->paginate($perPage, 'default', $page);
 
-        return $this->respond(['campaigns' => $rows, 'pager' => $this->pagerInfo($model->pager)]);
+        return $this->respond(['campaigns' => service('outbox')->decorateCampaigns($rows), 'pager' => $this->pagerInfo($model->pager)]);
     }
 
     public function preview(): ResponseInterface
@@ -49,10 +54,11 @@ class Campaigns extends ApiController
     {
         $data  = $this->input();
         $rules = [
-            'title'    => 'required|string|max_length[120]',
-            'body'     => 'required|string|max_length[2000]',
-            'audience' => 'permit_empty|in_list[all,recent,inactive]',
-            'days'     => 'permit_empty|is_natural_no_zero',
+            'title'        => 'required|string|max_length[120]',
+            'body'         => 'required|string|max_length[2000]',
+            'audience'     => 'permit_empty|in_list[all,recent,inactive]',
+            'days'         => 'permit_empty|is_natural_no_zero',
+            'scheduled_at' => 'permit_empty|valid_date[Y-m-d H:i:s]',
         ];
 
         if (! $this->validateData($data, $rules)) {
@@ -60,11 +66,40 @@ class Campaigns extends ApiController
         }
 
         [$audience, $days] = $this->audienceParams($data);
+        $start = ! empty($data['scheduled_at']) ? Time::parse((string) $data['scheduled_at']) : Time::now();
+
+        // the picture is checked before anything is queued, so a bad upload leaves no half campaign
+        $image  = $this->request->getFile('image');
+        $images = service('campaignImage');
+
+        if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
+            // error code only (isValid() also wants is_uploaded_file(), which no test request can satisfy);
+            // the bytes themselves are checked by CampaignImage::validate()
+            if ($image->getError() !== UPLOAD_ERR_OK) {
+                return $this->failValidationErrors(['image' => lang('App.image_invalid')]);
+            }
+
+            try {
+                $images->validate($image->getTempName(), (int) $image->getSize());
+            } catch (InvalidArgumentException $e) {
+                return $this->failValidationErrors(['image' => $e->getMessage()]);
+            }
+        } else {
+            $image = null;
+        }
 
         try {
-            $result = service('outbox')->createCampaign(trim((string) $data['title']), trim((string) $data['body']), $audience, $days);
+            $result = service('outbox')->createCampaign(trim((string) $data['title']), trim((string) $data['body']), $audience, $days, $start);
         } catch (RuntimeException $e) {
             return $this->fail($e->getMessage(), 422);
+        }
+
+        if ($image !== null) {
+            try {
+                service('outbox')->setCampaignImage($result['id'], $images->store($image->getTempName(), $result['id']));
+            } catch (InvalidArgumentException $e) {
+                return $this->failValidationErrors(['image' => $e->getMessage()]);
+            }
         }
 
         return $this->respondCreated($this->payload($result['id']) + ['auto_send' => service('outbox')->autoSendEnabled()]);
@@ -110,7 +145,7 @@ class Campaigns extends ApiController
         $messages = new MessageModel();
 
         return [
-            'campaign' => (new CampaignModel())->find($id),
+            'campaign' => service('outbox')->decorateCampaigns([(new CampaignModel())->find($id)])[0],
             'counts'   => $messages->counts(['campaign_id' => $id]),
             'messages' => service('outbox')->decorate($messages->where('campaign_id', $id)->orderBy('id', 'ASC')->findAll(300)),
         ];

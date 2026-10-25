@@ -9,7 +9,10 @@
  *   GET  /health                 no key - liveness for the watchdog
  *   GET  /status                 {connection, registered, me, qr, qr_png, pairing_code, last_error, since, sent_total}
  *   POST /pair    {phone}        link by phone number -> 8-character pairing code (WhatsApp > Linked devices)
- *   POST /send    {to, text}     send one text message (to = 10-digit Indian mobile or 91XXXXXXXXXX)
+ *   POST /send    {to, text, image_url?, image_base64?}
+ *                                send one text message (to = 10-digit Indian mobile or 91XXXXXXXXXX);
+ *                                with image_url (https URL or absolute path) or image_base64 (<= 2 MB)
+ *                                an image message is sent and `text` becomes its caption
  *   POST /logout                 unlink the WhatsApp account (forgets the session)
  *   POST /restart                exit cleanly; the watchdog starts a fresh process (session is kept)
  *
@@ -183,6 +186,22 @@ function readJson(req) {
   });
 }
 
+/**
+ * Baileys image content for POST /send: {url} for image_url (https URL or absolute path), a Buffer
+ * for image_base64 (at most 2 MB), null when the message is text only, false when the field is unusable.
+ */
+function imageContent(body) {
+  if (typeof body.image_base64 === 'string' && body.image_base64 !== '') {
+    const buf = Buffer.from(body.image_base64.replace(/^data:[^;]+;base64,/, ''), 'base64');
+    return buf.length > 0 && buf.length <= 2 * 1024 * 1024 ? buf : false;
+  }
+  if (typeof body.image_url === 'string' && body.image_url !== '') {
+    const u = body.image_url;
+    return /^https?:\/\/\S+$/i.test(u) || path.isAbsolute(u) ? { url: u } : false;
+  }
+  return null;
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const route = '/' + (url.pathname.replace(/\/+$/, '').split('/').pop() || '');
@@ -230,6 +249,10 @@ async function handle(req, res) {
     const to = normalizeIndianMobile(body.to);
     const text = typeof body.text === 'string' ? body.text.slice(0, 2000) : '';
     if (!to || text === '') return reply(res, 422, { ok: false, error: 'invalid_request' });
+    // optional picture: an https URL (or absolute file path) the bridge can read, or base64 bytes;
+    // the text becomes the caption
+    const image = imageContent(body);
+    if (image === false) return reply(res, 422, { ok: false, error: 'invalid_image' });
     if (!limiter.take()) return reply(res, 429, { ok: false, error: 'rate_limited' });
     if (!status.registered) return reply(res, 503, { ok: false, error: 'not_linked' });
     if (!(await waitOpen(25_000))) return reply(res, 503, { ok: false, error: 'not_connected' });
@@ -238,7 +261,8 @@ async function handle(req, res) {
     try {
       const [check] = await sock.onWhatsApp(jid);
       if (!check?.exists) return reply(res, 404, { ok: false, error: 'not_on_whatsapp' });
-      const sent = await sock.sendMessage(check.jid || jid, { text });
+      const content = image ? { image, caption: text } : { text };
+      const sent = await sock.sendMessage(check.jid || jid, content);
       status.sent_total += 1;
       return reply(res, 200, { ok: true, id: sent?.key?.id ?? null });
     } catch (e) {

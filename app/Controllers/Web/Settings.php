@@ -20,6 +20,7 @@ class Settings extends WebController
         'wa_auto_send',
         'wa_send_from',
         'wa_send_to',
+        'wa_daily_cap',
         'parlour_name',
         'parlour_phone',
         'parlour_address',

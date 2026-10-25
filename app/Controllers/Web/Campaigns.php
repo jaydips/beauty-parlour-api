@@ -8,13 +8,15 @@ use App\Models\CampaignModel;
 use App\Models\MessageModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\I18n\Time;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
  * Offers / announcements to many customers through the WhatsApp bridge.
  *   GET  /app/campaigns            list
  *   GET  /app/campaigns/new?days=  form with recipient counts per audience
- *   POST /app/campaigns            create + queue one message per recipient
+ *   POST /app/campaigns            create + queue one message per recipient (optional picture, optional start time)
  *   GET  /app/campaigns/{id}       progress and per-recipient status
  *   POST /app/campaigns/{id}/cancel
  */
@@ -24,7 +26,7 @@ class Campaigns extends WebController
     {
         return $this->render('web/campaigns/index', [
             'title'     => lang('App.title_campaigns'),
-            'campaigns' => (new CampaignModel())->orderBy('id', 'DESC')->findAll(100),
+            'campaigns' => service('outbox')->decorateCampaigns((new CampaignModel())->orderBy('id', 'DESC')->findAll(100)),
         ], 'more');
     }
 
@@ -64,9 +66,42 @@ class Campaigns extends WebController
             return redirect()->back()->withInput()->with('error', lang('App.message_required_2000'));
         }
 
+        // optional start: date + time fields; empty = now
+        $start     = Time::now();
+        $startDate = (string) ($data['start_date'] ?? '');
+        $startTime = (string) ($data['start_time'] ?? '');
+
+        if ($startDate !== '' || $startTime !== '') {
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || ! preg_match('/^\d{2}:\d{2}$/', $startTime) || strtotime("{$startDate} {$startTime}:00") === false) {
+                return redirect()->back()->withInput()->with('error', lang('App.fill_date_time'));
+            }
+
+            $start = Time::parse("{$startDate} {$startTime}:00");
+        }
+
+        $image  = $this->request->getFile('image');
+        $images = service('campaignImage');
+
+        if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
+            try {
+                if ($image->getError() !== UPLOAD_ERR_OK) {
+                    throw new InvalidArgumentException(lang('App.image_invalid'));
+                }
+                $images->validate($image->getTempName(), (int) $image->getSize());
+            } catch (InvalidArgumentException $e) {
+                return redirect()->back()->withInput()->with('error', $e->getMessage());
+            }
+        } else {
+            $image = null;
+        }
+
         try {
-            $result = service('outbox')->createCampaign($title, $body, $audience, $audience === 'all' ? null : $days);
-        } catch (RuntimeException $e) {
+            $result = service('outbox')->createCampaign($title, $body, $audience, $audience === 'all' ? null : $days, $start);
+
+            if ($image !== null) {
+                service('outbox')->setCampaignImage($result['id'], $images->store($image->getTempName(), $result['id']));
+            }
+        } catch (RuntimeException|InvalidArgumentException $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
@@ -88,7 +123,7 @@ class Campaigns extends WebController
 
         return $this->render('web/campaigns/show', [
             'title'    => $campaign['title'],
-            'campaign' => $campaign,
+            'campaign' => service('outbox')->decorateCampaigns([$campaign])[0],
             'counts'   => $messages->counts(['campaign_id' => $id]),
             'messages' => service('outbox')->decorate($messages->where('campaign_id', $id)->orderBy('id', 'ASC')->findAll(300)),
         ], 'more');

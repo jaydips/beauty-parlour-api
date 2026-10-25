@@ -175,6 +175,14 @@ What changes on the server with this release, in addition to the steps above:
   `instagram_url` with the owner's public links where they are blank or missing; the seeder adds
   `whatsapp_group_url` (blank) and `tagline`. New placeholders `{social_links}`, `{tagline}`,
   `{whatsapp_group_link}`.
+- Sixth release: pacing and campaign pictures. Migration `2026-10-25-150001` adds
+  `campaigns.image_path` / `campaigns.scheduled_at` (ADD COLUMN only). The seeder adds
+  `wa_daily_cap` (150). Campaign pictures are written by PHP into `<docroot>/uploads/campaigns/`
+  (created on first upload, 0755/0644; not part of the release zip, survives deploys). The bridge's
+  `server.js` changed (image messages): `deploy/deploy-cpanel.sh` now writes an empty
+  `whatsapp-bridge/.restart` on every deploy so the cron watchdog restarts the bridge within a
+  minute (session kept). Baileys needs `sharp` for image thumbnails; it is in `package-lock.json`,
+  so the one-off `npm install` on the host already installed it.
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

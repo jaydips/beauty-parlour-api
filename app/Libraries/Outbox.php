@@ -20,6 +20,11 @@ use RuntimeException;
  *   - enqueue*()      put messages in the outbox (booking confirmations, due reminders, offers)
  *   - process()       deliver queued messages through the bridge with pacing, retries and a send window
  * Everything is switched off while settings.wa_auto_send is "0"; the owner's wa.me links keep working.
+ *
+ * Pacing (ban-risk control): at most perRun sends per cron minute with a random pause between two sends,
+ * only inside the send window, at most settings.wa_daily_cap sends per calendar day (the rest waits for
+ * the next day), offer recipients spread by a random gap each, and no offer broadcast until the number
+ * has been linked for campaignWarmupHours (settings.wa_linked_since, maintained here).
  */
 class Outbox
 {
@@ -27,7 +32,7 @@ class Outbox
     private const DEFER_ERRORS = ['not_linked', 'not_connected', 'bridge_unreachable', 'bridge_not_configured', 'rate_limited', 'bad_response', 'unauthorized'];
 
     /** Bridge answers that mean this message can never be delivered. */
-    private const FATAL_ERRORS = ['not_on_whatsapp', 'invalid_request', 'invalid_phone'];
+    private const FATAL_ERRORS = ['not_on_whatsapp', 'invalid_request', 'invalid_phone', 'invalid_image'];
 
     private readonly WhatsAppConfig $config;
 
@@ -71,6 +76,46 @@ class Outbox
         $hm = $now->format('H:i');
 
         return $from < $to ? ($hm >= $from && $hm < $to) : ($hm >= $from || $hm < $to);
+    }
+
+    /** Sends allowed per calendar day (settings.wa_daily_cap); 0 means no cap. */
+    public function dailyCap(): int
+    {
+        $value = (string) $this->settings->value('wa_daily_cap', '150');
+
+        return ctype_digit($value) ? (int) $value : 150;
+    }
+
+    /** Messages the bridge accepted since local midnight. */
+    public function sentToday(Time $now): int
+    {
+        return $this->messages->where('status', 'sent')->where('sent_at >=', $now->toDateString() . ' 00:00:00')->countAllResults();
+    }
+
+    /** When the current WhatsApp link was first seen by the cron (settings.wa_linked_since), or null. */
+    public function linkedSince(): ?Time
+    {
+        $value = (string) $this->settings->value('wa_linked_since', '');
+
+        return $value !== '' ? Time::parse($value) : null;
+    }
+
+    /** True once the number has been linked for campaignWarmupHours (offer broadcasts wait until then). */
+    public function campaignsAllowed(Time $now): bool
+    {
+        if ($this->config->campaignWarmupHours <= 0) {
+            return true;
+        }
+
+        $since = $this->linkedSince();
+
+        return $since !== null && $since->addHours($this->config->campaignWarmupHours)->isBefore($now->addSeconds(1));
+    }
+
+    /** Forgets the link time (called when the owner unlinks the number; a re-link starts a new warm-up). */
+    public function forgetLink(): void
+    {
+        $this->settings->setValue('wa_linked_since', '');
     }
 
     // ---- enqueue ----------------------------------------------------------------------
@@ -255,20 +300,22 @@ class Outbox
     }
 
     /**
-     * Creates a campaign and one spread-out outbox row per recipient. The body may use
-     * {customer_name} and {parlour_name}.
+     * Creates a campaign and one spread-out outbox row per recipient: the first at $start (now by
+     * default, or the owner's scheduled time), each next one a random campaignGapSeconds..Max later.
+     * The body may use {customer_name}, {parlour_name} and the other base placeholders.
      *
      * @return array{id: int, recipients: int}
      */
-    public function createCampaign(string $title, string $body, string $audience, ?int $days, ?Time $now = null): array
+    public function createCampaign(string $title, string $body, string $audience, ?int $days, ?Time $start = null): array
     {
-        $now ??= Time::now();
+        $start ??= Time::now();
         $recipients = $this->recipients($audience, $days);
         $campaignId = $this->campaigns->insert([
             'title'         => $title,
             'body'          => $body,
             'audience'      => $audience,
             'audience_days' => $audience === 'all' ? null : $days,
+            'scheduled_at'  => $start->toDateTimeString(),
             'recipients'    => count($recipients),
             'sent'          => 0,
             'failed'        => 0,
@@ -280,14 +327,17 @@ class Outbox
         }
 
         $wa     = service('whatsapp');
-        $gap    = max(0, $this->config->campaignGapSeconds);
+        $offset = 0;
         $queued = 0;
 
         foreach ($recipients as $i => $customer) {
             $text = $wa->render($body, $wa->baseVars($customer));
-            $at   = $now->addSeconds($i * $gap)->toDateTimeString();
 
-            if ($this->enqueue($customer, 'offer', $text, ['campaign_id' => (int) $campaignId], $at) !== null) {
+            if ($i > 0) {
+                $offset += $this->randomGap($this->config->campaignGapSeconds, $this->config->campaignGapSecondsMax);
+            }
+
+            if ($this->enqueue($customer, 'offer', $text, ['campaign_id' => (int) $campaignId], $start->addSeconds($offset)->toDateTimeString()) !== null) {
                 $queued++;
             }
         }
@@ -297,6 +347,14 @@ class Outbox
         }
 
         return ['id' => (int) $campaignId, 'recipients' => $queued];
+    }
+
+    /**
+     * Attaches the stored picture (campaigns.image_path) to a campaign.
+     */
+    public function setCampaignImage(int $campaignId, ?string $imagePath): void
+    {
+        $this->campaigns->update($campaignId, ['image_path' => $imagePath]);
     }
 
     /**
@@ -344,7 +402,8 @@ class Outbox
     // ---- delivery ---------------------------------------------------------------------
 
     /**
-     * One cron run: queue due reminders, then send what is due (inside the send window) through the bridge.
+     * One cron run: queue due reminders, then send what is due (inside the send window, under the
+     * daily cap, offers only after the warm-up) through the bridge.
      *
      * @return array{queued_reminders: int, sent: int, failed: int, deferred: int, skipped: ?string}
      */
@@ -373,29 +432,78 @@ class Outbox
             return $summary;
         }
 
+        // daily cap: whatever does not fit today stays queued and goes out tomorrow inside the window
+        $cap = $this->dailyCap();
+
+        if ($cap > 0) {
+            $room = $cap - $this->sentToday($now);
+
+            if ($room <= 0) {
+                $summary['skipped']  = 'daily_cap';
+                $summary['deferred'] = count($batch);
+
+                return $summary;
+            }
+
+            if (count($batch) > $room) {
+                $summary['deferred'] += count($batch) - $room;
+                $batch = array_slice($batch, 0, $room);
+            }
+        }
+
         $bridge = service('whatsappBridge');
         $status = $bridge->status();
 
         if (! ($status['ok'] ?? false) || ! ($status['registered'] ?? false)) {
+            $this->forgetLink();
             $summary['skipped']  = 'bridge_' . preg_replace('/^bridge_/', '', (string) ($status['error'] ?? 'not_linked'));
-            $summary['deferred'] = count($batch);
+            $summary['deferred'] += count($batch);
 
             return $summary;
         }
 
+        if ($this->linkedSince() === null) {
+            $this->settings->setValue('wa_linked_since', $now->toDateTimeString());
+        }
+
+        // offer broadcasts wait until the number has been linked long enough (transactional messages go out)
+        if (! $this->campaignsAllowed($now)) {
+            $offers = array_filter($batch, static fn (array $m): bool => $m['type'] === 'offer');
+
+            if ($offers !== []) {
+                $summary['deferred'] += count($offers);
+                $summary['skipped'] = 'campaign_warmup';
+                $batch = array_values(array_filter($batch, static fn (array $m): bool => $m['type'] !== 'offer'));
+            }
+        }
+
+        $images = [];
+
         foreach ($batch as $i => $message) {
-            if ($i > 0 && $this->config->gapSeconds > 0) {
-                sleep($this->config->gapSeconds);
+            if ($i > 0) {
+                $pause = $this->randomGap($this->config->gapSeconds, $this->config->gapSecondsMax);
+
+                if ($pause > 0) {
+                    sleep($pause);
+                }
             }
 
-            $result   = $bridge->send((string) $message['phone'], (string) $message['body']);
+            $imageUrl = null;
+
+            if (! empty($message['campaign_id'])) {
+                $cid = (int) $message['campaign_id'];
+                $images[$cid] ??= service('campaignImage')->url($this->campaigns->find($cid)['image_path'] ?? null);
+                $imageUrl = $images[$cid];
+            }
+
+            $result   = $bridge->send((string) $message['phone'], (string) $message['body'], $imageUrl);
             $attempts = (int) $message['attempts'] + 1;
 
             if ($result['ok'] ?? false) {
                 $this->messages->update((int) $message['id'], [
                     'status'     => 'sent',
                     'attempts'   => $attempts,
-                    'sent_at'    => Time::now()->toDateTimeString(),
+                    'sent_at'    => $now->toDateTimeString(),
                     'wa_id'      => isset($result['id']) ? mb_substr((string) $result['id'], 0, 64) : null,
                     'last_error' => null,
                 ]);
@@ -408,7 +516,7 @@ class Outbox
             $error = (string) ($result['error'] ?? 'unknown_error');
 
             if (in_array($error, self::DEFER_ERRORS, true)) {
-                // The bridge itself is the problem: keep the whole batch for the next run.
+                // The bridge itself is the problem: keep the rest of the batch for the next run.
                 $this->messages->update((int) $message['id'], ['last_error' => $error]);
                 $summary['deferred'] += count($batch) - $i;
                 $summary['skipped'] = 'bridge_' . $error;
@@ -461,6 +569,31 @@ class Outbox
         }
 
         return $rows;
+    }
+
+    /**
+     * Adds image_url to campaign rows for the API and the web UI.
+     *
+     * @param list<array<string, mixed>> $rows
+     */
+    public function decorateCampaigns(array $rows): array
+    {
+        $images = service('campaignImage');
+
+        foreach ($rows as &$row) {
+            $row['image_url'] = $images->url($row['image_path'] ?? null);
+        }
+
+        return $rows;
+    }
+
+    /** A random whole number of seconds in [$min, $max] (never negative; $max below $min means $min). */
+    public function randomGap(int $min, int $max): int
+    {
+        $min = max(0, $min);
+        $max = max($min, $max);
+
+        return $min === $max ? $min : random_int($min, $max);
     }
 
     private function afterSent(array $message): void

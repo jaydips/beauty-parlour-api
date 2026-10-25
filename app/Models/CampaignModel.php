@@ -19,7 +19,7 @@ class CampaignModel extends Model
     protected $table         = 'campaigns';
     protected $primaryKey    = 'id';
     protected $returnType    = 'array';
-    protected $allowedFields = ['title', 'body', 'audience', 'audience_days', 'recipients', 'sent', 'failed', 'status'];
+    protected $allowedFields = ['title', 'body', 'audience', 'audience_days', 'image_path', 'scheduled_at', 'recipients', 'sent', 'failed', 'status'];
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
 
@@ -28,6 +28,8 @@ class CampaignModel extends Model
         'body'          => 'required|string|max_length[2000]',
         'audience'      => 'required|in_list[all,recent,inactive]',
         'audience_days' => 'permit_empty|is_natural',
+        'image_path'    => 'permit_empty|string|max_length[255]',
+        'scheduled_at'  => 'permit_empty|valid_date[Y-m-d H:i:s]',
         'recipients'    => 'permit_empty|is_natural',
         'sent'          => 'permit_empty|is_natural',
         'failed'        => 'permit_empty|is_natural',

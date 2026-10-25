@@ -55,6 +55,13 @@ class WhatsappStatus extends BaseCommand
             $now->toDateTimeString(),
             $this->yn($outbox->inSendWindow($now)),
         ));
+        CLI::write(sprintf(
+            'pacing: sent_today %d / daily_cap %d, linked_since=%s, campaigns_allowed=%s',
+            $outbox->sentToday($now),
+            $outbox->dailyCap(),
+            $outbox->linkedSince()?->toDateTimeString() ?? '-',
+            $this->yn($outbox->campaignsAllowed($now)),
+        ));
 
         $messages = new MessageModel();
         $counts   = $messages->counts();

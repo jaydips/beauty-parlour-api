@@ -346,6 +346,8 @@ return [
     'setting_wa_auto_send'          => 'નવી બુકિંગ પર ઑટો WhatsApp',
     'setting_wa_send_from'          => 'ઑટો WhatsApp: આ સમયથી',
     'setting_wa_send_to'            => 'ઑટો WhatsApp: આ સમય સુધી',
+    'setting_wa_daily_cap'          => 'દિવસમાં વધુમાં વધુ કેટલા મેસેજ (0 = મર્યાદા નહીં)',
+    'daily_cap_help'                => 'WhatsApp ban ટાળવા: મેસેજ વચ્ચે 4–12 સેકન્ડનો random અંતર, ઑફરમાં ગ્રાહક દીઠ 30–90 સેકન્ડ, દિવસની મર્યાદા પૂરી થાય એટલે બાકીના બીજા દિવસે મોકલવાના સમયમાં જાય છે. નવો નંબર જોડ્યા પછી 24 કલાક સુધી ઑફર (બ્રોડકાસ્ટ) મોકલાતી નથી.',
     'template_placeholders'         => 'નમૂનામાં વાપરી શકાય: {customer_name} {parlour_name} {parlour_address} {parlour_phone} {tagline} {date} {time} {services} {review_link} {instagram_link} {whatsapp_group_link} {social_links}. તારીખ dd/mm/yyyy (દા.ત. 25/10/2026) અને સમય ગુજરાતીમાં (દા.ત. "સવારે 10:30") ભરાય છે. સરનામું કે ફોન ખાલી હોય તો એ લાઇન મેસેજમાંથી નીકળી જાય છે. લિંક *bold* માં ન મૂકવી (WhatsApp પછી લિંક ખોલતું નથી).',
     'settings_saved'                => 'સેટિંગ્સ સાચવ્યાં.',
     'templates_heading'             => 'WhatsApp મેસેજ નમૂના',
@@ -477,6 +479,12 @@ return [
     'campaign_queued'          => '{0} ગ્રાહકો માટે મેસેજ કતારમાં મૂક્યા.',
     'campaign_auto_off_note'   => ' ઑટો WhatsApp બંધ છે: WhatsApp પેજ પરથી ચાલુ કરશો ત્યારે મોકલાશે.',
     'campaign_not_found'       => 'ઑફર મળી નહીં.',
+    'campaign_image'           => 'ફોટો (વૈકલ્પિક, JPG/PNG/WebP, 2 MB સુધી)',
+    'campaign_image_help'      => 'ફોટો હોય તો મેસેજ ફોટા સાથે જાય છે અને લખાણ caption બને છે. મોટો ફોટો 1600 px સુધી નાનો કરીને JPG તરીકે સચવાય છે.',
+    'campaign_start'           => 'ક્યારે મોકલવાનું શરૂ કરવું (ખાલી = હમણાં)',
+    'campaign_start_help'      => 'આ સમય પહેલાં કોઈ મેસેજ જતો નથી; પછી મોકલવાના સમયમાં એક પછી એક જાય છે.',
+    'image_invalid'            => 'ફોટો વાંચી શકાયો નહીં: JPG, PNG કે WebP ફાઇલ પસંદ કરો.',
+    'image_too_large'          => 'ફોટો ખૂબ મોટો છે (વધુમાં વધુ {0} MB).',
     'campaign_cancelled'       => 'ઑફર રદ: {0} બાકી મેસેજ રદ થયા.',
 
     // ---- JSON API messages (keys and enum values stay English; only the human text is Gujarati)

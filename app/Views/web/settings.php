@@ -8,7 +8,7 @@ $field    = static function (string $key, string $value): string {
     if (str_starts_with($key, 'tpl_') || $key === 'parlour_address') {
         return '<textarea id="' . $id . '" name="' . $id . '" rows="' . (str_starts_with($key, 'tpl_') ? 5 : 3) . '">' . esc($value) . '</textarea>';
     }
-    if (in_array($key, ['slot_minutes', 'reminder_lead_hours', 'followup_days'], true)) {
+    if (in_array($key, ['slot_minutes', 'reminder_lead_hours', 'followup_days', 'wa_daily_cap'], true)) {
         return '<input id="' . $id . '" name="' . $id . '" type="number" inputmode="numeric" min="0" step="1" value="' . esc($value) . '">';
     }
     if ($key === 'wa_send_from' || $key === 'wa_send_to') {
@@ -55,6 +55,9 @@ $templates = ['tpl_whatsapp_booking', 'tpl_whatsapp_reminder', 'tpl_whatsapp_fol
                 <?= $field('wa_send_to', (string) old('wa_send_to', $values['wa_send_to'] ?? '')) ?>
             </div>
         </div>
+        <label for="wa_daily_cap"><?= esc(lang('App.setting_wa_daily_cap')) ?></label>
+        <?= $field('wa_daily_cap', (string) old('wa_daily_cap', $values['wa_daily_cap'] ?? '150')) ?>
+        <p class="muted"><?= esc(lang('App.daily_cap_help')) ?></p>
         <div class="actions">
             <a class="btn btn-ghost btn-sm" href="<?= site_url('app/whatsapp') ?>"><?= esc(lang('App.open_whatsapp_page')) ?></a>
         </div>

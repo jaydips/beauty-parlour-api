@@ -7,7 +7,7 @@
     <div class="flash flash-error"><?= lang('App.auto_send_off_warning', [site_url('app/whatsapp')]) ?></div>
 <?php endif ?>
 
-<form method="post" action="<?= site_url('app/campaigns') ?>" data-confirm="<?= esc(lang('App.confirm_queue_campaign'), 'attr') ?>">
+<form method="post" action="<?= site_url('app/campaigns') ?>" enctype="multipart/form-data" data-confirm="<?= esc(lang('App.confirm_queue_campaign'), 'attr') ?>">
     <?= csrf_field() ?>
 
     <label for="title"><?= esc(lang('App.offer_name')) ?></label>
@@ -16,6 +16,17 @@
     <label for="body"><?= esc(lang('App.message_whatsapp')) ?></label>
     <textarea id="body" name="body" rows="5" maxlength="2000" required><?= esc(old('body', $defaultBody)) ?></textarea>
     <p class="muted"><?= esc(lang('App.offer_placeholders')) ?></p>
+
+    <label for="image"><?= esc(lang('App.campaign_image')) ?></label>
+    <input id="image" name="image" type="file" accept="image/jpeg,image/png,image/webp">
+    <p class="muted"><?= esc(lang('App.campaign_image_help')) ?></p>
+
+    <label><?= esc(lang('App.campaign_start')) ?></label>
+    <div class="grid2">
+        <div><input id="start_date" name="start_date" type="date" value="<?= esc(old('start_date', '')) ?>" aria-label="<?= esc(lang('App.date'), 'attr') ?>"></div>
+        <div><input id="start_time" name="start_time" type="time" value="<?= esc(old('start_time', '')) ?>" step="900" aria-label="<?= esc(lang('App.time'), 'attr') ?>"></div>
+    </div>
+    <p class="muted"><?= esc(lang('App.campaign_start_help')) ?></p>
 
     <label><?= esc(lang('App.send_to_whom')) ?></label>
     <label class="check"><input type="radio" name="audience" value="all" <?= $audience === 'all' ? 'checked' : '' ?>> <?= esc(lang('App.audience_all', [(int) $counts['all']])) ?></label>

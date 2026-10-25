@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Libraries\AppointmentService;
+use App\Libraries\CampaignImage;
 use App\Libraries\DashboardService;
 use App\Libraries\Outbox;
 use App\Libraries\OwnerAuth;
@@ -49,6 +50,18 @@ class Services extends BaseService
         }
 
         return new WhatsAppBridge();
+    }
+
+    /**
+     * Campaign pictures: validation, resize to JPEG inside the document root, public URL.
+     */
+    public static function campaignImage(bool $getShared = true): CampaignImage
+    {
+        if ($getShared) {
+            return static::getSharedInstance('campaignImage');
+        }
+
+        return new CampaignImage();
     }
 
     /**

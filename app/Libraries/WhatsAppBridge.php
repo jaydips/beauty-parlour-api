@@ -40,9 +40,19 @@ class WhatsAppBridge
         return $this->call('POST', '/pair', ['phone' => $phone]);
     }
 
-    public function send(string $phone, string $text): array
+    /**
+     * Sends one text message, or an image message with $text as its caption when $imageUrl (an
+     * https URL the bridge can fetch) is given.
+     */
+    public function send(string $phone, string $text, ?string $imageUrl = null): array
     {
-        return $this->call('POST', '/send', ['to' => $phone, 'text' => $text]);
+        $body = ['to' => $phone, 'text' => $text];
+
+        if ($imageUrl !== null && $imageUrl !== '') {
+            $body['image_url'] = $imageUrl;
+        }
+
+        return $this->call('POST', '/send', $body);
     }
 
     public function logout(): array

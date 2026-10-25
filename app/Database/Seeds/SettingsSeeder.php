@@ -54,6 +54,7 @@ class SettingsSeeder extends Seeder
         'wa_auto_send'          => '0',
         'wa_send_from'          => '09:00',
         'wa_send_to'            => '21:00',
+        'wa_daily_cap'          => '150', // sends per day; the rest waits for the next day's window (0 = no cap)
     ];
 
     public function run(): void

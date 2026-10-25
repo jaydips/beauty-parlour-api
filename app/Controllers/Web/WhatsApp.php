@@ -71,6 +71,10 @@ class WhatsApp extends WebController
         $result = service('whatsappBridge')->logout();
         $ok     = (bool) ($result['ok'] ?? false);
 
+        if ($ok) {
+            service('outbox')->forgetLink(); // the next link starts a new campaign warm-up
+        }
+
         return $this->home()->with($ok ? 'success' : 'error', $ok ? lang('App.unlinked') : lang('App.unlink_failed', [(string) ($result['error'] ?? lang('App.unknown'))]));
     }
 

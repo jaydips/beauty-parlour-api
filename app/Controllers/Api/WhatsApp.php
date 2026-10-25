@@ -7,6 +7,7 @@ namespace App\Controllers\Api;
 use App\Models\MessageModel;
 
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\I18n\Time;
 
 /**
  * Automatic WhatsApp (bridge) for the Flutter app.
@@ -22,6 +23,7 @@ class WhatsApp extends ApiController
     {
         $bridge = service('whatsappBridge');
         $outbox = service('outbox');
+        $config = config('WhatsApp');
         $status = $bridge->configured() ? $bridge->status() : ['ok' => false, 'error' => 'bridge_not_configured'];
         [$from, $to] = $outbox->sendWindow();
 
@@ -41,6 +43,16 @@ class WhatsApp extends ApiController
             'auto_send'   => $outbox->autoSendEnabled(),
             'send_window' => ['from' => $from, 'to' => $to],
             'counts'      => (new MessageModel())->counts(),
+            'pacing'      => [
+                'daily_cap'             => $outbox->dailyCap(),
+                'sent_today'            => $outbox->sentToday(Time::now()),
+                'per_run'               => $config->perRun,
+                'gap_seconds'           => [$config->gapSeconds, $config->gapSecondsMax],
+                'campaign_gap_seconds'  => [$config->campaignGapSeconds, $config->campaignGapSecondsMax],
+                'campaign_warmup_hours' => $config->campaignWarmupHours,
+                'linked_since'          => $outbox->linkedSince()?->toDateTimeString(),
+                'campaigns_allowed'     => $outbox->campaignsAllowed(Time::now()),
+            ],
         ]);
     }
 
@@ -65,7 +77,13 @@ class WhatsApp extends ApiController
     {
         $result = service('whatsappBridge')->logout();
 
-        return ($result['ok'] ?? false) ? $this->respond(['ok' => true]) : $this->fail(['error' => $result['error'] ?? 'unknown'], 502);
+        if ($result['ok'] ?? false) {
+            service('outbox')->forgetLink(); // the next link starts a new campaign warm-up
+
+            return $this->respond(['ok' => true]);
+        }
+
+        return $this->fail(['error' => $result['error'] ?? 'unknown'], 502);
     }
 
     public function test(): ResponseInterface

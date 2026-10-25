@@ -180,8 +180,18 @@ Everything here needs the bearer token. The switch is a setting: `PUT /settings 
 | POST | `/messages/{id}/cancel` | | queued → cancelled (409 otherwise) |
 | GET | `/campaigns` | `page=` | offer broadcasts |
 | GET | `/campaigns/preview` | `audience=all|recent|inactive` `days=90` | recipient count, a 5-name sample, `auto_send`, and `default_body` (the `tpl_whatsapp_offer` template to prefill the form) |
-| POST | `/campaigns` | `{title, body, audience?, days?}` | creates the campaign and one queued message per opted-in recipient (201); body placeholders `{customer_name}` `{parlour_name}` |
+| POST | `/campaigns` | JSON `{title, body, audience?, days?, scheduled_at?}` or `multipart/form-data` with the same fields plus an optional file `image` (jpeg/png/webp, at most 2 MB; stored resized to 1600 px as JPEG under `uploads/campaigns/{id}.jpg` in the document root) | creates the campaign and one queued message per opted-in recipient (201), the first at `scheduled_at` (`Y-m-d H:i:s`, default now), each next one a random 30–90 s later; nothing is sent before `scheduled_at`. A bad image answers 400 and queues nothing. Body placeholders: `{customer_name}` `{parlour_name}` `{parlour_address}` `{parlour_phone}` … |
 | GET | `/campaigns/{id}` | | campaign, `counts`, per-recipient `messages` |
+
+Campaign row: `id, title, body, audience, audience_days, image_path, image_url (absolute https URL or null),
+scheduled_at, recipients, sent, failed, status (queued|done|cancelled), created_at, updated_at`. When a
+campaign has an image every recipient gets an image message with the text as its caption.
+
+`GET /whatsapp/status` also returns `pacing`: `daily_cap` (settings `wa_daily_cap`, default 150, `"0"`
+= no cap), `sent_today`, `per_run` (8 per cron minute), `gap_seconds` ([4, 12], random), `campaign_gap_seconds`
+([30, 90], random), `campaign_warmup_hours` (24: offer broadcasts wait until the number has been linked
+that long; booking/reminder/review messages do not), `linked_since`, `campaigns_allowed`. When the daily
+cap is reached the rest stays queued and goes out the next day inside the send window.
 | POST | `/campaigns/{id}/cancel` | | cancels the queued messages |
 
 Message row: `id, customer_id, appointment_id, reminder_id, campaign_id, phone, type (booking|appointment|follow_up|birthday|review|offer|custom), body, status (queued|sent|failed|cancelled), attempts, last_error, scheduled_at, sent_at, wa_id, customer {id, name, phone}`.

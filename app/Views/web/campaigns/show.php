@@ -7,7 +7,13 @@
 </div>
 
 <div class="card">
+    <?php if (! empty($campaign['image_url'])): ?>
+        <img src="<?= esc($campaign['image_url'], 'attr') ?>" alt="" style="display:block;max-width:100%;max-height:260px;border-radius:8px;margin-bottom:8px">
+    <?php endif ?>
     <p class="msg"><?= nl2br(esc($campaign['body'])) ?></p>
+    <?php if (! empty($campaign['scheduled_at'])): ?>
+        <div class="row"><span><?= esc(lang('App.campaign_start')) ?></span><span><?= esc(fmt_datetime($campaign['scheduled_at'])) ?></span></div>
+    <?php endif ?>
     <div class="row"><span><?= esc(lang('App.to_whom')) ?></span><span><?= esc(match ($campaign['audience']) { 'recent' => lang('App.aud_recent', [(int) $campaign['audience_days']]), 'inactive' => lang('App.aud_inactive', [(int) $campaign['audience_days']]), default => lang('App.aud_all') }) ?></span></div>
     <div class="row"><span><?= esc(lang('App.customers')) ?></span><span><?= (int) $campaign['recipients'] ?></span></div>
     <div class="row"><span><?= esc(lang('App.queued')) ?></span><span><?= (int) $counts['queued'] ?></span></div>

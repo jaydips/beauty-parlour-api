@@ -92,6 +92,14 @@ else
   echo "== 4/6 document root sync skipped (DOCROOT not set)"
 fi
 
+# the bridge (Node) keeps running across deploys; an empty .restart makes the cron watchdog restart it
+# within a minute so it picks up a new server.js (the WhatsApp session is kept)
+echo "== 4b  ask the bridge watchdog to restart the bridge"
+RESTART="$(mktemp)"; : > "$RESTART"
+RES="$(uapi -F "dir=$APP_DIR/whatsapp-bridge" -F 'overwrite=1' -F "file-0=@$(lp "$RESTART");filename=.restart" "$API/execute/Fileman/upload_files" || true)"
+rm -f "$RESTART"
+[ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] && echo "   .restart written" || echo "   warning: could not write .restart (${RES:0:200})" >&2
+
 echo "== 5/6 run migrations: $APP_URL/install/migrate"
 RES="$(curl -sS --max-time 300 "$APP_URL/install/migrate?key=$INSTALL_KEY")"
 [ "$(json_get "$RES" '$j["migrated"] ?? false')" = "1" ] || { echo "migrate failed: ${RES:0:600}" >&2; exit 1; }

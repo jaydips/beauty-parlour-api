@@ -11,9 +11,12 @@ block numbers that send bulk or unwanted messages. Therefore:
 
 - use a number dedicated to the parlour, not the owner's personal number;
 - send only to customers who agreed (`customers.whatsapp_opt_in`), which the outbox enforces;
-- keep volumes modest: the outbox sends at most 8 messages per minute with 4-second gaps, offer
-  broadcasts go out one recipient every 30 seconds, everything only inside the owner's send window
-  (default 09:00–21:00);
+- keep volumes modest: the outbox sends at most 8 messages per cron minute with a random 4–12 s pause
+  between two sends, offer broadcasts go out one recipient every random 30–90 s, at most
+  `wa_daily_cap` (default 150) messages per day (the rest waits for the next day), everything only
+  inside the owner's send window (default 09:00–21:00), and no offer broadcast until the number has
+  been linked for 24 hours (`Config\WhatsApp::$campaignWarmupHours`, `settings.wa_linked_since`
+  recorded by the cron and cleared on unlink);
 - the whole feature stays **off** until the owner switches `wa_auto_send` on in the app.
 
 **Owner's guide (Gujarati):** [whatsapp-owner-guide.gu.md](whatsapp-owner-guide.gu.md): pairing the
@@ -75,7 +78,10 @@ What gets queued, and when:
   the first time `whatsapp:send` sees it. When the bridge confirms delivery the reminder is marked
   `sent`; the owner's manual wa.me button stays available meanwhile.
 - **Offers**: a campaign queues one personalised message per recipient (`{customer_name}`,
-  `{parlour_name}`), spread 30 s apart.
+  `{parlour_name}`, …), the first at the campaign's `scheduled_at` (now by default), each next one a
+  random 30–90 s later. With a picture (`campaigns.image_path`, stored by `App\Libraries\CampaignImage`
+  in `<docroot>/uploads/campaigns/<id>.jpg`) the bridge sends an image message with the text as
+  caption (`POST /send {to, text, image_url}`); the bridge fetches the public URL itself.
 - **Custom**: `POST /messages {customer_id, body}` or the web outbox.
 
 Delivery rules (`Outbox::process`): nothing happens while `wa_auto_send` is `0` or outside the send
