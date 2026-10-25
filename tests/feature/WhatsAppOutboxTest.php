@@ -241,14 +241,45 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertSame(1, $summary['sent']);
         $this->assertSame(['to' => '9876543211', 'text' => 'Hi Asha', 'image_url' => $json['campaign']['image_url']], $this->bridge->sent[0]);
 
-        // bad uploads are refused before anything is queued
+        // bad uploads are refused with a Gujarati messages.error (422) before anything is queued
         file_put_contents($png, 'not an image');
         $_FILES['image']['size'] = filesize($png);
         Services::resetSingle('superglobals');
         $bad = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->post('campaigns', ['title' => 'Bad', 'body' => 'x', 'audience' => 'all']);
-        $bad->assertStatus(400);
+        $bad->assertStatus(422);
+        $this->assertSame(lang('App.image_invalid'), json_decode($bad->getJSON(), true, 512, JSON_THROW_ON_ERROR)['messages']['error']);
         $this->assertSame(1, (new \App\Models\CampaignModel())->countAllResults());
         unlink($png);
+    }
+
+    public function testMultipartPostIsAcceptedEvenThoughItsRawBodyIsNotJson(): void
+    {
+        // the phone app sends multipart/form-data; the raw body is the multipart envelope, not JSON.
+        // Before the fix ApiController::input() called getJSON() on it -> HTTPException -> HTTP 500.
+        (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
+        $login = $this->withBodyFormat('json')->post('auth/login', ['phone' => '9033319266', 'password' => 'secret123']);
+        $token = json_decode($login->getJSON(), true, 512, JSON_THROW_ON_ERROR)['token'];
+
+        $envelope = "--xyz\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nTest\r\n--xyz--\r\n";
+        $res      = $this->withHeaders(['Authorization' => 'Bearer ' . $token, 'Content-Type' => 'multipart/form-data; boundary=xyz'])
+            ->withBody($envelope)
+            ->post('campaigns', ['title' => 'Test', 'body' => "🎁 *નમસ્તે {customer_name}!* ઑફર", 'audience' => 'all']);
+        $res->assertStatus(201);
+        $json = json_decode($res->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Test', $json['campaign']['title']);
+        $this->assertNull($json['campaign']['image_url']);
+        $this->assertSame(1, $json['counts']['queued']);
+
+        // a broken JSON body still answers 400 (validation), never 500
+        $broken = $this->withHeaders(['Authorization' => 'Bearer ' . $token, 'Content-Type' => 'application/json'])->withBody('{not json')->post('campaigns', []);
+        $broken->assertStatus(400);
+
+        // deep health reports what uploads need
+        $deep = json_decode($this->get('health?deep=1')->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertTrue($deep['uploads']['gd']);
+        $this->assertTrue($deep['uploads']['gd_jpeg']);
+        $this->assertArrayHasKey('upload_max_filesize', $deep['uploads']);
+        $this->assertArrayNotHasKey('uploads', json_decode($this->get('health')->getJSON(), true, 512, JSON_THROW_ON_ERROR));
     }
 
     public function testBookingConfirmationIsQueuedOnlyWhenAutoSendIsOn(): void

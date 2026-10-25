@@ -183,6 +183,11 @@ Everything here needs the bearer token. The switch is a setting: `PUT /settings 
 | POST | `/campaigns` | JSON `{title, body, audience?, days?, scheduled_at?}` or `multipart/form-data` with the same fields plus an optional file `image` (jpeg/png/webp, at most 2 MB; stored resized to 1600 px as JPEG under `uploads/campaigns/{id}.jpg` in the document root) | creates the campaign and one queued message per opted-in recipient (201), the first at `scheduled_at` (`Y-m-d H:i:s`, default now), each next one a random 30–90 s later; nothing is sent before `scheduled_at`. A bad image answers 400 and queues nothing. Body placeholders: `{customer_name}` `{parlour_name}` `{parlour_address}` `{parlour_phone}` … |
 | GET | `/campaigns/{id}` | | campaign, `counts`, per-recipient `messages` |
 
+Image problems (not jpeg/png/webp, over 2 MB, cannot be stored) answer `422 {"messages": {"error": "<Gujarati>"}}`
+and queue nothing. `GET /health?deep=1` (no token) reports `uploads` = GD support, uploads directory
+exists/writable, `upload_max_filesize`, `post_max_size`, `memory_limit`, so a failing upload can be
+diagnosed anonymously.
+
 Campaign row: `id, title, body, audience, audience_days, image_path, image_url (absolute https URL or null),
 scheduled_at, recipients, sent, failed, status (queued|done|cancelled), created_at, updated_at`. When a
 campaign has an image every recipient gets an image message with the text as its caption.

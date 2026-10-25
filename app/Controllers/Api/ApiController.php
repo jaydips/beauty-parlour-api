@@ -6,6 +6,7 @@ namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
 use CodeIgniter\API\ResponseTrait;
+use CodeIgniter\HTTP\Exceptions\HTTPException;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
 
@@ -31,19 +32,39 @@ abstract class ApiController extends BaseController
     }
 
     /**
-     * Request payload: JSON body first, otherwise form fields (POST or raw PUT/PATCH).
+     * Request payload: a JSON body, otherwise form fields (POST / multipart, or a raw PUT/PATCH body).
+     *
+     * multipart/form-data is parsed by PHP into $_POST / $_FILES; its raw body is never JSON, and
+     * IncomingRequest::getJSON() throws on a non-JSON body (that was the HTTP 500 on image uploads),
+     * so JSON is only attempted for a non-multipart body.
      *
      * @return array<string, mixed>
      */
     protected function input(): array
     {
-        $json = $this->request->getJSON(true);
+        $type = strtolower($this->request->getHeaderLine('Content-Type'));
 
-        if (is_array($json)) {
-            return $json;
+        if (str_contains($type, 'multipart/form-data')) {
+            return $this->request->getPost();
         }
 
-        return array_merge($this->request->getRawInput(), $this->request->getPost());
+        if (str_contains($type, 'application/x-www-form-urlencoded')) {
+            return array_merge($this->request->getRawInput(), $this->request->getPost());
+        }
+
+        if ((string) $this->request->getBody() !== '') {
+            try {
+                $json = $this->request->getJSON(true);
+
+                if (is_array($json)) {
+                    return $json;
+                }
+            } catch (HTTPException) {
+                // a broken JSON body is not form data either: validation reports the missing fields
+            }
+        }
+
+        return str_contains($type, 'json') ? $this->request->getPost() : array_merge($this->request->getRawInput(), $this->request->getPost());
     }
 
     protected function validationFailure(): ResponseInterface

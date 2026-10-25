@@ -74,15 +74,18 @@ class Campaigns extends ApiController
 
         if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
             // error code only (isValid() also wants is_uploaded_file(), which no test request can satisfy);
-            // the bytes themselves are checked by CampaignImage::validate()
+            // the bytes themselves are checked by CampaignImage::validate(). Image problems answer
+            // 422 {messages: {error: "<Gujarati>"}} and nothing is queued.
             if ($image->getError() !== UPLOAD_ERR_OK) {
-                return $this->failValidationErrors(['image' => lang('App.image_invalid')]);
+                return $this->fail($image->getError() === UPLOAD_ERR_INI_SIZE || $image->getError() === UPLOAD_ERR_FORM_SIZE
+                    ? lang('App.image_too_large', [(int) round(config('WhatsApp')->imageMaxBytes / 1048576)])
+                    : lang('App.image_invalid'), 422);
             }
 
             try {
                 $images->validate($image->getTempName(), (int) $image->getSize());
             } catch (InvalidArgumentException $e) {
-                return $this->failValidationErrors(['image' => $e->getMessage()]);
+                return $this->fail($e->getMessage(), 422);
             }
         } else {
             $image = null;
@@ -98,7 +101,10 @@ class Campaigns extends ApiController
             try {
                 service('outbox')->setCampaignImage($result['id'], $images->store($image->getTempName(), $result['id']));
             } catch (InvalidArgumentException $e) {
-                return $this->failValidationErrors(['image' => $e->getMessage()]);
+                // storing failed after the rows were queued: take the campaign back so nothing goes out without its picture
+                service('outbox')->cancelCampaign($result['id']);
+
+                return $this->fail($e->getMessage(), 422);
             }
         }
 
