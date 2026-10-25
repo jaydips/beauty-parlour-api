@@ -239,10 +239,26 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertStringContainsString('sent 1, failed 0, deferred 0', $out);
         $this->assertSame('Deal Asha', $this->bridge->sent[1]['text']);
 
-        // unlinking forgets the link time; a bridge that reports "not linked" does too
-        service('outbox')->forgetLink();
+        // a bridge that is merely unreachable (restarting after a deploy) keeps the link time ...
+        (new CustomerModel())->insert(['name' => 'Bina', 'phone' => '9876543212', 'whatsapp_opt_in' => 1]);
+        service('outbox')->enqueue(['id' => 2, 'phone' => '9876543212'], 'custom', 'Later');
+        $this->bridge->statusReply = ['ok' => false, 'error' => 'bridge_unreachable'];
+        $out = $this->runCommand('whatsapp:send');
+        $this->assertStringContainsString('(bridge_unreachable)', $out);
+        $this->assertNotNull(service('outbox')->linkedSince(), 'an unreachable bridge must not restart the warm-up');
+
+        // ... a reachable bridge that reports "not registered" (number unlinked) forgets it
+        $this->bridge->statusReply = ['ok' => true, 'registered' => false, 'connection' => 'close'];
+        $this->runCommand('whatsapp:send');
         $this->assertNull(service('outbox')->linkedSince());
         $this->assertFalse(service('outbox')->campaignsAllowed(Time::now()));
+
+        // unlinking from the UI forgets it too
+        $this->bridge->statusReply = ['ok' => true, 'registered' => true, 'connection' => 'open'];
+        $this->runCommand('whatsapp:send');
+        $this->assertNotNull(service('outbox')->linkedSince());
+        service('outbox')->forgetLink();
+        $this->assertNull(service('outbox')->linkedSince());
     }
 
     public function testCampaignWithImageIsStoredResizedAndSentAsCaptionedPicture(): void

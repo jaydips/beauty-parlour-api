@@ -531,7 +531,12 @@ class Outbox
         $status = $bridge->status();
 
         if (! ($status['ok'] ?? false) || ! ($status['registered'] ?? false)) {
-            $this->forgetLink();
+            // only a reachable bridge that says "not registered" means the number was unlinked (new
+            // warm-up on re-link); an unreachable bridge (restart after a deploy, crash) keeps the link time
+            if (($status['ok'] ?? false) && ! ($status['registered'] ?? false)) {
+                $this->forgetLink();
+            }
+
             $summary['skipped']  = 'bridge_' . preg_replace('/^bridge_/', '', (string) ($status['error'] ?? 'not_linked'));
             $summary['deferred'] += count($batch);
 
