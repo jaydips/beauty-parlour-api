@@ -21,6 +21,7 @@ class Settings extends WebController
         'wa_send_from',
         'wa_send_to',
         'wa_daily_cap',
+        'wa_campaign_warmup_hours',
         'parlour_name',
         'parlour_phone',
         'parlour_address',

@@ -62,7 +62,7 @@ class SettingModel extends Model
         return match ($key) {
             'country_code'                                         => preg_match('/^\d{1,3}$/', $value) ? null : lang('App.v_country_code'),
             'parlour_phone'                                        => ($value === '' || preg_match('/^\d{10}$/', $value)) ? null : lang('App.v_phone_10'),
-            'slot_minutes', 'reminder_lead_hours', 'followup_days', 'wa_daily_cap' => ctype_digit($value) ? null : lang('App.v_whole_number'),
+            'slot_minutes', 'reminder_lead_hours', 'followup_days', 'wa_daily_cap', 'wa_campaign_warmup_hours' => ctype_digit($value) ? null : lang('App.v_whole_number'),
             'opening_hours'                                        => json_decode($value, true) !== null || $value === 'null' ? null : lang('App.v_json'),
             'timezone'                                             => in_array($value, timezone_identifiers_list(), true) ? null : lang('App.v_timezone'),
             'wa_auto_send'                                         => in_array($value, ['0', '1'], true) ? null : lang('App.v_zero_one'),

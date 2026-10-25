@@ -194,9 +194,13 @@ campaign has an image every recipient gets an image message with the text as its
 
 `GET /whatsapp/status` also returns `pacing`: `daily_cap` (settings `wa_daily_cap`, default 150, `"0"`
 = no cap), `sent_today`, `per_run` (8 per cron minute), `gap_seconds` ([4, 12], random), `campaign_gap_seconds`
-([30, 90], random), `campaign_warmup_hours` (24: offer broadcasts wait until the number has been linked
-that long; booking/reminder/review messages do not), `linked_since`, `campaigns_allowed`. When the daily
-cap is reached the rest stays queued and goes out the next day inside the send window.
+([30, 90], random), `campaign_warmup_hours` (settings `wa_campaign_warmup_hours`, default 24: offer
+broadcasts wait until the number has been linked that long; booking/reminder/review messages do not;
+`"0"` = no wait), `linked_since`, `campaigns_allowed`, `campaigns_allowed_at`; plus `cron_last_run` and
+`cron_last_result` (heartbeat of the every-minute `spark whatsapp:send` job: its last run time and
+summary line, `null` when it never ran). When the daily cap is reached the rest stays queued and goes
+out the next day inside the send window. The anonymous `GET /health?deep=1` carries the same facts as
+a `whatsapp` block (booleans/counts only) for support without a token.
 | POST | `/campaigns/{id}/cancel` | | cancels the queued messages |
 
 Message row: `id, customer_id, appointment_id, reminder_id, campaign_id, phone, type (booking|appointment|follow_up|birthday|review|offer|custom), body, status (queued|sent|failed|cancelled), attempts, last_error, scheduled_at, sent_at, wa_id, customer {id, name, phone}`.

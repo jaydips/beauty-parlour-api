@@ -183,6 +183,12 @@ What changes on the server with this release, in addition to the steps above:
   `whatsapp-bridge/.restart` on every deploy so the cron watchdog restarts the bridge within a
   minute (session kept). Baileys needs `sharp` for image thumbnails; it is in `package-lock.json`,
   so the one-off `npm install` on the host already installed it.
+- Seventh release: the deploy script's step 4c sets the bridge up through the cPanel API when
+  something is missing (`.env.bridge` with a generated key, the `whatsapp.bridge*` lines in `.env`,
+  `~/tmp`, the two every-minute cron jobs; `start_bridge.sh` installs `node_modules` itself), the
+  `whatsapp:send` cron writes a heartbeat (`wa_cron_last_run` / `wa_cron_last_result`), and
+  `GET /health?deep=1` shows the whole WhatsApp state without a token. The seeder adds
+  `wa_campaign_warmup_hours` (24; the owner can lower it on the settings page).
 - `public/assets/app.css` changed (owner guide styles) and the views reference `app.css?v=2` /
   `app.js?v=2`: re-copy `public/assets/` to the document root (step 3 above, or the GitHub Action
   does it). Nothing changes in `.env`, cron jobs or the bridge (`whatsapp-bridge/server.js` only

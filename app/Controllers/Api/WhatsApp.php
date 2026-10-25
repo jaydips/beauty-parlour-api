@@ -25,6 +25,7 @@ class WhatsApp extends ApiController
         $outbox = service('outbox');
         $config = config('WhatsApp');
         $status = $bridge->configured() ? $bridge->status() : ['ok' => false, 'error' => 'bridge_not_configured'];
+        $diag   = $outbox->diagnostics(Time::now(), $status);
         [$from, $to] = $outbox->sendWindow();
 
         return $this->respond([
@@ -49,10 +50,13 @@ class WhatsApp extends ApiController
                 'per_run'               => $config->perRun,
                 'gap_seconds'           => [$config->gapSeconds, $config->gapSecondsMax],
                 'campaign_gap_seconds'  => [$config->campaignGapSeconds, $config->campaignGapSecondsMax],
-                'campaign_warmup_hours' => $config->campaignWarmupHours,
+                'campaign_warmup_hours' => $outbox->campaignWarmupHours(),
                 'linked_since'          => $outbox->linkedSince()?->toDateTimeString(),
                 'campaigns_allowed'     => $outbox->campaignsAllowed(Time::now()),
+                'campaigns_allowed_at'  => $outbox->campaignsAllowed(Time::now()) ? null : $outbox->campaignsAllowedAt()?->toDateTimeString(),
             ],
+            'cron_last_run'    => $diag['cron_last_run'],
+            'cron_last_result' => $diag['cron_last_result'],
         ]);
     }
 

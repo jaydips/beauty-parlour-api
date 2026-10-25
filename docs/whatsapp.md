@@ -91,6 +91,16 @@ window; the bridge must report `registered` (linked). Bridge-side problems (`not
 
 ## 2. Server setup (cPanel, no SSH)
 
+**Since 2026-10-25 the deploy does steps 2–5 by itself** (`deploy/deploy-cpanel.sh` step 4c, run by
+the GitHub Action on every push to `main`, idempotent): it creates `whatsapp-bridge/.env.bridge` with
+a generated `BRIDGE_KEY` when the file is missing, adds `whatsapp.bridgeUrl` / `whatsapp.bridgeKey`
+to the server `.env` when that key is missing or empty (never rewriting an existing one), creates
+`~/tmp/` for the cron logs, adds the two every-minute cron jobs when they are absent, and writes
+`whatsapp-bridge/.restart` so the watchdog restarts the bridge with the new code. The watchdog
+(`start_bridge.sh`) runs `npm install --omit=dev` itself when `node_modules/baileys` is missing, so
+the one-off npm cron job is no longer needed. What stays manual: linking the number (step 6) and
+switching auto-send on. The steps below remain for a hand-built host.
+
 The host already runs Node 20 at `/opt/alt/alt-nodejs20/root/usr/bin/node` (used by the owner's
 other apps); the bridge is started by a cron watchdog, not by Passenger.
 
@@ -134,7 +144,14 @@ other apps); the bridge is started by a cron watchdog, not by Passenger.
 
 Checks: `GET https://<host>/whatsapp/status` (bearer token) or the web page shows the bridge state;
 `tmp/cron-whatsapp.log` shows one line per minute like
-`[2026-10-24 10:31:00] reminders queued 2, sent 2, failed 0, deferred 0`.
+`[2026-10-24 10:31:00] reminders queued 2, sent 2, failed 0, deferred 0`. Without a token,
+`GET https://<host>/health?deep=1` returns a `whatsapp` block: `bridge_configured`,
+`bridge_reachable`, `registered`, `auto_send`, `in_send_window`, `campaigns_allowed`
+(+ `campaign_warmup_hours`, `campaigns_allowed_at`), `linked_hours`, `queued_due`, `queued_total`,
+`sent_today` / `daily_cap`, and the cron heartbeat `cron_last_run` / `cron_minutes_ago` /
+`cron_last_result` (the last summary line, e.g. `deferred 4 (campaign_warmup)`), which the
+`whatsapp:send` command writes to the settings `wa_cron_last_run` / `wa_cron_last_result` on every
+run. The same two cron fields are on `GET /whatsapp/status` and the *ઑટો WhatsApp* page.
 
 Two more spark commands exist for checks from a one-off cron job (or locally):
 

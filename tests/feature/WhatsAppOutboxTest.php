@@ -121,6 +121,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $settings->setValue('wa_auto_send', '1');
         $settings->setValue('wa_send_from', '00:00');
         $settings->setValue('wa_send_to', '00:00'); // equal = any time
+        $settings->setValue('wa_campaign_warmup_hours', '0'); // the seeded default (24) is tested explicitly
     }
 
     protected function tearDown(): void
@@ -199,8 +200,8 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
 
     public function testOfferBroadcastsWaitForTheLinkWarmupButReminderMessagesDoNot(): void
     {
-        $config = config('WhatsApp');
-        $config->campaignWarmupHours = 24;
+        (new SettingModel())->setValue('wa_campaign_warmup_hours', '24'); // owner-editable; seeded default
+        $this->assertSame(24, service('outbox')->campaignWarmupHours());
         $cid = (new CustomerModel())->insert(['name' => 'Asha', 'phone' => '9876543211', 'whatsapp_opt_in' => 1]);
         (new ReminderModel())->insert(['customer_id' => $cid, 'type' => 'custom', 'due_at' => Time::now()->subMinutes(1)->toDateTimeString(), 'channel' => 'whatsapp', 'message' => 'Hi', 'status' => 'pending']);
         service('outbox')->createCampaign('Offer', 'Deal {customer_name}', 'all', null);
@@ -210,6 +211,26 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $this->assertStringContainsString('sent 1, failed 0, deferred 1 (campaign_warmup)', $out);
         $this->assertSame('Hi', $this->bridge->sent[0]['text']);
         $this->assertNotNull(service('outbox')->linkedSince());
+
+        // the heartbeat and the reason are visible without a token on /health?deep=1
+        $deep = json_decode($this->get('health?deep=1')->getJSON(), true, 512, JSON_THROW_ON_ERROR)['whatsapp'];
+        $this->assertTrue($deep['bridge_configured']);
+        $this->assertTrue($deep['bridge_reachable']);
+        $this->assertTrue($deep['registered']);
+        $this->assertTrue($deep['auto_send']);
+        $this->assertTrue($deep['in_send_window']);
+        $this->assertFalse($deep['campaigns_allowed']);
+        $this->assertSame(24, $deep['campaign_warmup_hours']);
+        $this->assertNotNull($deep['campaigns_allowed_at']);
+        $this->assertSame(1, $deep['queued_due']);
+        $this->assertNotNull($deep['cron_last_run']);
+        $this->assertSame(0, $deep['cron_minutes_ago']);
+        $this->assertStringContainsString('(campaign_warmup)', $deep['cron_last_result']);
+        $this->seeInDatabase('settings', ['key' => 'wa_cron_last_run']);
+
+        // the web pages tell the owner the same thing
+        $this->withSession($this->ownerSession)->get('app/campaigns/1')->assertSee('ઑફર મેસેજ');
+        $this->withSession($this->ownerSession)->get('app/whatsapp')->assertSee('(campaign_warmup)');
 
         // 24 hours later the offer goes out
         (new SettingModel())->setValue('wa_linked_since', Time::now()->subHours(25)->toDateTimeString());

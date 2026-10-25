@@ -14,6 +14,9 @@
     <?php if (! empty($campaign['scheduled_at'])): ?>
         <div class="row"><span><?= esc(lang('App.campaign_start')) ?></span><span><?= esc(fmt_datetime($campaign['scheduled_at'])) ?></span></div>
     <?php endif ?>
+    <?php if (! empty($warmupUntil)): ?>
+        <p class="muted"><?= esc(lang('App.campaign_warmup_notice', [fmt_datetime($warmupUntil)])) ?></p>
+    <?php endif ?>
     <div class="row"><span><?= esc(lang('App.to_whom')) ?></span><span><?= esc(match ($campaign['audience']) { 'recent' => lang('App.aud_recent', [(int) $campaign['audience_days']]), 'inactive' => lang('App.aud_inactive', [(int) $campaign['audience_days']]), default => lang('App.aud_all') }) ?></span></div>
     <div class="row"><span><?= esc(lang('App.customers')) ?></span><span><?= (int) $campaign['recipients'] ?></span></div>
     <div class="row"><span><?= esc(lang('App.queued')) ?></span><span><?= (int) $counts['queued'] ?></span></div>

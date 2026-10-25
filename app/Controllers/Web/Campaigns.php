@@ -132,12 +132,15 @@ class Campaigns extends WebController
         }
 
         $messages = new MessageModel();
+        $outbox   = service('outbox');
+        $now      = Time::now();
 
         return $this->render('web/campaigns/show', [
             'title'    => $campaign['title'],
-            'campaign' => service('outbox')->decorateCampaigns([$campaign])[0],
+            'campaign' => $outbox->decorateCampaigns([$campaign])[0],
             'counts'   => $messages->counts(['campaign_id' => $id]),
-            'messages' => service('outbox')->decorate($messages->where('campaign_id', $id)->orderBy('id', 'ASC')->findAll(300)),
+            'messages' => $outbox->decorate($messages->where('campaign_id', $id)->orderBy('id', 'ASC')->findAll(300)),
+            'warmupUntil' => $campaign['status'] === 'queued' && $outbox->autoSendEnabled() && ! $outbox->campaignsAllowed($now) ? $outbox->campaignsAllowedAt()?->toDateTimeString() : null,
         ], 'more');
     }
 

@@ -100,16 +100,68 @@ class Outbox
         return $value !== '' ? Time::parse($value) : null;
     }
 
-    /** True once the number has been linked for campaignWarmupHours (offer broadcasts wait until then). */
+    /** Hours a freshly linked number must wait before offer broadcasts: settings.wa_campaign_warmup_hours, else the config default. */
+    public function campaignWarmupHours(): int
+    {
+        $value = (string) $this->settings->value('wa_campaign_warmup_hours', '');
+
+        return ctype_digit($value) ? (int) $value : max(0, $this->config->campaignWarmupHours);
+    }
+
+    /** When offer broadcasts become allowed (null = no link recorded yet, or no warm-up configured). */
+    public function campaignsAllowedAt(): ?Time
+    {
+        $since = $this->linkedSince();
+
+        return $since !== null && $this->campaignWarmupHours() > 0 ? $since->addHours($this->campaignWarmupHours()) : null;
+    }
+
+    /** True once the number has been linked for the warm-up period (offer broadcasts wait until then). */
     public function campaignsAllowed(Time $now): bool
     {
-        if ($this->config->campaignWarmupHours <= 0) {
+        if ($this->campaignWarmupHours() <= 0) {
             return true;
         }
 
-        $since = $this->linkedSince();
+        $at = $this->campaignsAllowedAt();
 
-        return $since !== null && $since->addHours($this->config->campaignWarmupHours)->isBefore($now->addSeconds(1));
+        return $at !== null && $at->isBefore($now->addSeconds(1));
+    }
+
+    /**
+     * Operational snapshot for /health?deep=1 and GET /whatsapp/status (booleans, counts and times only;
+     * no secrets). $bridgeStatus is the bridge's /status answer when the caller already fetched it.
+     *
+     * @return array<string, mixed>
+     */
+    public function diagnostics(Time $now, ?array $bridgeStatus = null): array
+    {
+        $bridge     = service('whatsappBridge');
+        $configured = $bridge->configured();
+        $status     = $bridgeStatus ?? ($configured ? $bridge->status() : ['ok' => false, 'error' => 'bridge_not_configured']);
+        $since      = $this->linkedSince();
+        $lastRun    = (string) $this->settings->value('wa_cron_last_run', '');
+
+        return [
+            'bridge_configured' => $configured,
+            'bridge_reachable'  => (bool) ($status['ok'] ?? false),
+            'registered'        => (bool) ($status['registered'] ?? false),
+            'connection'        => $status['connection'] ?? null,
+            'auto_send'         => $this->autoSendEnabled(),
+            'in_send_window'    => $this->inSendWindow($now),
+            'send_window'       => implode('-', $this->sendWindow()),
+            'campaigns_allowed' => $this->campaignsAllowed($now),
+            'campaign_warmup_hours' => $this->campaignWarmupHours(),
+            'campaigns_allowed_at'  => $this->campaignsAllowed($now) ? null : $this->campaignsAllowedAt()?->toDateTimeString(),
+            'linked_hours'      => $since !== null ? round(($now->getTimestamp() - $since->getTimestamp()) / 3600, 1) : null,
+            'queued_due'        => $this->messages->where('status', 'queued')->where('scheduled_at <=', $now->toDateTimeString())->countAllResults(),
+            'queued_total'      => $this->messages->where('status', 'queued')->countAllResults(),
+            'sent_today'        => $this->sentToday($now),
+            'daily_cap'         => $this->dailyCap(),
+            'cron_last_run'     => $lastRun !== '' ? $lastRun : null,
+            'cron_last_result'  => (string) $this->settings->value('wa_cron_last_result', '') ?: null,
+            'cron_minutes_ago'  => $lastRun !== '' ? (int) floor(($now->getTimestamp() - Time::parse($lastRun)->getTimestamp()) / 60) : null,
+        ];
     }
 
     /** Forgets the link time (called when the owner unlinks the number; a re-link starts a new warm-up). */

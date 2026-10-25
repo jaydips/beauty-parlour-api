@@ -55,6 +55,7 @@ class SettingsSeeder extends Seeder
         'wa_send_from'          => '09:00',
         'wa_send_to'            => '21:00',
         'wa_daily_cap'          => '150', // sends per day; the rest waits for the next day's window (0 = no cap)
+        'wa_campaign_warmup_hours' => '24', // offer broadcasts wait this long after the number was linked (0 = no wait)
     ];
 
     public function run(): void

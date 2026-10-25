@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Models\SettingModel;
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\I18n\Time;
@@ -28,16 +29,22 @@ class WhatsappSend extends BaseCommand
         $limit   = (int) ($params['limit'] ?? CLI::getOption('limit') ?? 0);
         $now     = Time::now();
         $summary = service('outbox')->process($now, $limit > 0 ? $limit : null);
-
-        CLI::write(sprintf(
-            '[%s] reminders queued %d, sent %d, failed %d, deferred %d%s',
-            $now->toDateTimeString(),
+        $line    = sprintf(
+            'reminders queued %d, sent %d, failed %d, deferred %d%s',
             $summary['queued_reminders'],
             $summary['sent'],
             $summary['failed'],
             $summary['deferred'],
             $summary['skipped'] !== null ? ' (' . $summary['skipped'] . ')' : '',
-        ));
+        );
+
+        // heartbeat for /health?deep=1 and GET /whatsapp/status: proves the cron job runs and shows why
+        // nothing went out (auto_send_off, outside_send_window, bridge_not_linked, daily_cap, ...)
+        $settings = new SettingModel();
+        $settings->setValue('wa_cron_last_run', $now->toDateTimeString());
+        $settings->setValue('wa_cron_last_result', $line);
+
+        CLI::write('[' . $now->toDateTimeString() . '] ' . $line);
 
         return EXIT_SUCCESS;
     }

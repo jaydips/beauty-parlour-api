@@ -41,6 +41,7 @@ class WhatsApp extends WebController
             'recent'       => $outbox->decorate($messages->orderBy('id', 'DESC')->findAll(8)),
             'pairingCode'  => session()->getFlashdata('pairing_code') ?? ($status['pairing_code'] ?? null),
             'defaultPhone' => (string) ($settings->value('parlour_phone') ?: ($this->owner()['phone'] ?? '')),
+            'diag'         => $outbox->diagnostics(\CodeIgniter\I18n\Time::now(), $status),
         ], 'more');
     }
 

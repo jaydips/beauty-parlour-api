@@ -27,6 +27,22 @@ fi
 
 pgrep -u "$ME" -f "$MATCH" >/dev/null && exit 0
 
+# first run on a fresh host (or after package.json changed and node_modules was removed): install the
+# dependencies here, so no one-off cron job is needed; a lock directory keeps two runs from colliding
+if [ ! -d "$DIR/node_modules/baileys" ]; then
+  NPM="${NPM_BIN:-/opt/alt/alt-nodejs20/root/usr/bin/npm}"
+  [ -x "$NPM" ] || NPM="$(command -v npm)"
+  if mkdir "$DIR/.npm-install.lock" 2>/dev/null; then
+    echo "$(date): node_modules missing - running npm install" >> "$DIR/watchdog.log"
+    (cd "$DIR" && PATH="$(dirname "$NODE"):$PATH" "$NPM" install --omit=dev --no-audit --no-fund >> "$DIR/watchdog.log" 2>&1)
+    echo "$(date): npm install finished (exit $?)" >> "$DIR/watchdog.log"
+    rmdir "$DIR/.npm-install.lock" 2>/dev/null
+  else
+    exit 0  # another run is installing right now
+  fi
+  [ -d "$DIR/node_modules/baileys" ] || exit 1
+fi
+
 cd "$DIR" || exit 1
 nohup "$NODE" "$DIR/server.js" >> "$DIR/bridge.log" 2>&1 &
 echo "$(date): started bridge pid $! with $NODE" >> "$DIR/watchdog.log"

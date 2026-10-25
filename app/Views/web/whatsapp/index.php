@@ -71,6 +71,13 @@
     <?php if ($autoSend && $state[2] !== 'open' && $state[2] !== 'connecting'): ?>
         <p class="muted"><?= esc(lang('App.auto_wa_not_linked_warning')) ?></p>
     <?php endif ?>
+    <?php if ($autoSend && ! $diag['campaigns_allowed'] && $diag['campaigns_allowed_at']): ?>
+        <p class="muted"><?= esc(lang('App.campaign_warmup_notice', [fmt_datetime($diag['campaigns_allowed_at'])])) ?></p>
+    <?php endif ?>
+    <div class="row"><span><?= esc(lang('App.cron_last_run_label')) ?></span><span><?= esc($diag['cron_last_run'] ? fmt_datetime($diag['cron_last_run']) : lang('App.cron_never_ran')) ?></span></div>
+    <?php if ($diag['cron_last_result']): ?>
+        <div class="muted"><code><?= esc($diag['cron_last_result']) ?></code></div>
+    <?php endif ?>
     <form method="post" action="<?= site_url('app/whatsapp/auto-send') ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="enabled" value="<?= $autoSend ? '0' : '1' ?>">

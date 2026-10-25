@@ -49,10 +49,28 @@ class Health extends BaseController
         ];
 
         if ($this->request->getGet('deep')) {
-            $payload['uploads'] = $this->uploads();
+            $payload['uploads']  = $this->uploads();
+            $payload['whatsapp'] = $this->whatsapp();
         }
 
         return $this->respond($payload, $db['ok'] ? 200 : 503);
+    }
+
+    /**
+     * Why automatic WhatsApp is (not) sending: bridge configured/reachable/linked, the switch, the
+     * window, the warm-up, what is due and when the cron last ran. Booleans, counts and times only.
+     *
+     * @return array<string, mixed>
+     */
+    private function whatsapp(): array
+    {
+        try {
+            return service('outbox')->diagnostics(Time::now());
+        } catch (Throwable $e) {
+            log_message('error', 'Health whatsapp diagnostics failed: {message}', ['message' => $e->getMessage()]);
+
+            return ['error' => 'diagnostics_failed'];
+        }
     }
 
     /**

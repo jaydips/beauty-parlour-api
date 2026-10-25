@@ -100,6 +100,70 @@ RES="$(uapi -F "dir=$APP_DIR/whatsapp-bridge" -F 'overwrite=1' -F "file-0=@$(lp 
 rm -f "$RESTART"
 [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] && echo "   .restart written" || echo "   warning: could not write .restart (${RES:0:200})" >&2
 
+# Bridge setup through the same API, idempotent: whatsapp-bridge/.env.bridge (generated secret),
+# the matching whatsapp.bridge* keys in the PHP .env, ~/tmp for the cron logs and the two
+# every-minute cron jobs. Each piece is created only when missing; nothing existing is rewritten.
+# (node_modules are installed by start_bridge.sh itself when they are missing.)
+echo "== 4c  bridge setup (idempotent)"
+PHP_BIN="${PHP_BIN:-/opt/cpanel/ea-php83/root/usr/bin/php}"
+BRIDGE_DIR="$APP_DIR/whatsapp-bridge"
+api2() { curl -sS --fail-with-body --max-time 120 -H "@$(lp "$HDR")" -X POST \
+  --data-urlencode "cpanel_jsonapi_user=$CPANEL_USER" --data-urlencode 'cpanel_jsonapi_apiversion=2' "$@" "$API/json-api/cpanel"; }
+
+# 1. .env.bridge: keep an existing key, else generate one
+RES="$(uapi "$API/execute/Fileman/get_file_content?dir=$BRIDGE_DIR&file=.env.bridge" || true)"
+BRIDGE_KEY_VAL=""
+if [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ]; then
+  BRIDGE_KEY_VAL="$(json_get "$RES" 'preg_match("/^\s*BRIDGE_KEY\s*=\s*\"?([^\"\s]+)/m", (string) ($j["data"]["content"] ?? ""), $m) ? $m[1] : ""')"
+fi
+if [ -z "$BRIDGE_KEY_VAL" ]; then
+  BRIDGE_KEY_VAL="$(openssl rand -hex 24)"
+  TMPB="$(mktemp)"; printf 'BRIDGE_KEY=%s\nPORT=3310\n' "$BRIDGE_KEY_VAL" > "$TMPB"
+  RES="$(uapi -F "dir=$BRIDGE_DIR" -F 'overwrite=1' -F 'permissions=0600' -F "file-0=@$(lp "$TMPB");filename=.env.bridge" "$API/execute/Fileman/upload_files" || true)"
+  rm -f "$TMPB"
+  [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] && echo "   .env.bridge created" || echo "   warning: could not create .env.bridge (${RES:0:200})" >&2
+else
+  echo "   .env.bridge present"
+fi
+
+# 2. PHP .env: add whatsapp.bridgeUrl / whatsapp.bridgeKey only when the key is missing or empty
+RES="$(uapi "$API/execute/Fileman/get_file_content?dir=$APP_DIR&file=.env" || true)"
+if [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ]; then
+  ENV_CONTENT="$(json_get "$RES" '(string) ($j["data"]["content"] ?? "")')"
+  if printf '%s\n' "$ENV_CONTENT" | grep -Eq '^[[:space:]]*whatsapp\.bridgeKey[[:space:]]*=[[:space:]]*[^[:space:]]'; then
+    echo "   .env has whatsapp.bridgeKey"
+  else
+    TMPE="$(mktemp)"
+    printf '%s\n' "$ENV_CONTENT" | grep -Ev '^[[:space:]]*#?[[:space:]]*whatsapp\.(bridgeUrl|bridgeKey)[[:space:]]*=' > "$TMPE" || true
+    printf '\n# WhatsApp bridge (written by deploy-cpanel.sh; the key matches whatsapp-bridge/.env.bridge)\nwhatsapp.bridgeUrl = http://127.0.0.1:3310\nwhatsapp.bridgeKey = %s\n' "$BRIDGE_KEY_VAL" >> "$TMPE"
+    RES="$(uapi -F "dir=$APP_DIR" -F 'overwrite=1' -F 'permissions=0600' -F "file-0=@$(lp "$TMPE");filename=.env" "$API/execute/Fileman/upload_files" || true)"
+    rm -f "$TMPE"
+    [ "$(json_get "$RES" '$j["status"] ?? 0')" = "1" ] && echo "   .env: whatsapp.bridge* keys added" || echo "   warning: could not update .env (${RES:0:200})" >&2
+  fi
+else
+  echo "   warning: cannot read .env, bridge keys not checked" >&2
+fi
+
+# 3. ~/tmp for the cron logs (upload_files creates the directory)
+TMPK="$(mktemp)"; : > "$TMPK"
+uapi -F "dir=$CPANEL_HOME/tmp" -F 'overwrite=1' -F "file-0=@$(lp "$TMPK");filename=.keep" "$API/execute/Fileman/upload_files" >/dev/null 2>&1 || true
+rm -f "$TMPK"
+
+# 4. cron jobs, matched by their command
+CRONS="$(api2 --data-urlencode 'cpanel_jsonapi_module=Cron' --data-urlencode 'cpanel_jsonapi_func=listcron' || true)"
+ensure_cron() { # ensure_cron <match substring (no quotes)> <command>
+  if [ "$(json_get "$CRONS" "count(array_filter(\$j['cpanelresult']['data'] ?? [], fn (\$l) => str_contains((string) (\$l['command'] ?? ''), '$1')))")" != "0" ]; then
+    echo "   cron present: $1"
+  else
+    RES="$(api2 --data-urlencode 'cpanel_jsonapi_module=Cron' --data-urlencode 'cpanel_jsonapi_func=add_line' \
+      --data-urlencode 'minute=*' --data-urlencode 'hour=*' --data-urlencode 'day=*' --data-urlencode 'month=*' --data-urlencode 'weekday=*' \
+      --data-urlencode "command=$2" || true)"
+    [ "$(json_get "$RES" '$j["cpanelresult"]["data"][0]["status"] ?? ($j["cpanelresult"]["event"]["result"] ?? 0)')" = "1" ] && echo "   cron added: $1" || echo "   warning: could not add cron '$1' (${RES:0:200})" >&2
+  fi
+}
+ensure_cron "whatsapp-bridge/start_bridge.sh" "/bin/bash $BRIDGE_DIR/start_bridge.sh # beauty-parlour-api"
+ensure_cron "beauty-parlour-api/spark whatsapp:send" "$PHP_BIN $APP_DIR/spark whatsapp:send >> $CPANEL_HOME/tmp/cron-whatsapp.log 2>&1 # beauty-parlour-api"
+
 echo "== 5/6 run migrations: $APP_URL/install/migrate"
 RES="$(curl -sS --max-time 300 "$APP_URL/install/migrate?key=$INSTALL_KEY")"
 [ "$(json_get "$RES" '$j["migrated"] ?? false')" = "1" ] || { echo "migrate failed: ${RES:0:600}" >&2; exit 1; }
