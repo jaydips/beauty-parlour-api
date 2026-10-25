@@ -4,7 +4,7 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 
-// API root (JSON) - no HTML front end exists
+// Site root: browsers are sent to /login (or /app when signed in); JSON clients get the API root
 $routes->get('/', 'Home::index');
 
 // Unauthenticated liveness check used after every deployment.

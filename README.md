@@ -185,7 +185,7 @@ number and switches auto-send on at `/app/whatsapp`. Setup, limits and risks: `d
 
 | Route | Purpose |
 |-------|---------|
-| `GET /` | JSON API root |
+| `GET /` | Browser: 302 to `/login` (or `/app` with a web session). `Accept: application/json`: the JSON API root |
 | `GET /health` | Liveness check: framework, PHP, environment, timezone, database driver/version. Production: `https://delicate.jainamagrifood.com/health` |
 | `GET /install/status?key=…` | Applied and pending migrations (404 without the exact `install.key` from `.env`) |
 | `GET /install/migrate?key=…` | Runs pending migrations and `SettingsSeeder` (same protection) |

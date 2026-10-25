@@ -35,6 +35,22 @@ final class WebUiTest extends CIUnitTestCase
         $this->assertStringContainsString('/login', (string) $res->getRedirectUrl());
     }
 
+    public function testSiteRootOpensTheLoginPageOrTheDashboard(): void
+    {
+        $res = $this->get('/');
+        $res->assertStatus(302);
+        $this->assertStringEndsWith('/login', (string) $res->getRedirectUrl());
+
+        $signedIn = $this->withSession(['owner_id' => 1, 'owner_name' => 'Jalpa Patel'])->get('/');
+        $signedIn->assertStatus(302);
+        $this->assertStringEndsWith('/app', rtrim((string) $signedIn->getRedirectUrl(), '/'));
+
+        // API clients still get the JSON root
+        $json = $this->withHeaders(['Accept' => 'application/json'])->get('/');
+        $json->assertStatus(200);
+        $this->assertSame('beauty-parlour-api', json_decode($json->getJSON(), true, 512, JSON_THROW_ON_ERROR)['app']);
+    }
+
     public function testLoginPageRenders(): void
     {
         $res = $this->get('login');
