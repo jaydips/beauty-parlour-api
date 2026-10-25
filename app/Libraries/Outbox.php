@@ -358,6 +358,30 @@ class Outbox
     }
 
     /**
+     * Removes a campaign that failed right after creation (picture could not be stored): the row and
+     * its queued messages go (FK cascade; nothing of it was sent yet) and its picture file with them.
+     */
+    public function discardCampaign(int $campaignId): void
+    {
+        $campaign = $this->campaigns->find($campaignId);
+
+        if ($campaign === null) {
+            return;
+        }
+
+        if ($this->messages->where('campaign_id', $campaignId)->where('status', 'sent')->countAllResults() > 0) {
+            // something already went out: keep the record, just stop the rest
+            $this->cancelCampaign($campaignId);
+
+            return;
+        }
+
+        $this->messages->builder()->where('campaign_id', $campaignId)->delete();
+        $this->campaigns->delete($campaignId);
+        service('campaignImage')->delete($campaign['image_path'] ?? null);
+    }
+
+    /**
      * Cancels the queued messages of a campaign. Returns how many were cancelled.
      */
     public function cancelCampaign(int $campaignId): int

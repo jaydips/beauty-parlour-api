@@ -68,14 +68,14 @@ class Campaigns extends ApiController
         [$audience, $days] = $this->audienceParams($data);
         $start = ! empty($data['scheduled_at']) ? Time::parse((string) $data['scheduled_at']) : Time::now();
 
-        // the picture is checked before anything is queued, so a bad upload leaves no half campaign
+        // 1) the picture is validated, resized and written to a temp file BEFORE any row exists, so a bad
+        //    or unprocessable upload answers 422 {messages: {error: "<Gujarati>"}} with nothing queued
         $image  = $this->request->getFile('image');
         $images = service('campaignImage');
+        $temp   = null;
 
         if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
-            // error code only (isValid() also wants is_uploaded_file(), which no test request can satisfy);
-            // the bytes themselves are checked by CampaignImage::validate(). Image problems answer
-            // 422 {messages: {error: "<Gujarati>"}} and nothing is queued.
+            // error code only (isValid() also wants is_uploaded_file(), which no test request can satisfy)
             if ($image->getError() !== UPLOAD_ERR_OK) {
                 return $this->fail($image->getError() === UPLOAD_ERR_INI_SIZE || $image->getError() === UPLOAD_ERR_FORM_SIZE
                     ? lang('App.image_too_large', [(int) round(config('WhatsApp')->imageMaxBytes / 1048576)])
@@ -83,29 +83,33 @@ class Campaigns extends ApiController
             }
 
             try {
-                $images->validate($image->getTempName(), (int) $image->getSize());
+                $temp = $images->storeTemp($image->getTempName(), (int) $image->getSize());
             } catch (InvalidArgumentException $e) {
                 return $this->fail($e->getMessage(), 422);
             }
-        } else {
-            $image = null;
         }
+
+        // 2) create + queue, 3) give the picture its final name; anything that goes wrong after the
+        //    insert removes the campaign again (its queued messages cascade), so nothing is left queued
+        $result = null;
 
         try {
             $result = service('outbox')->createCampaign(trim((string) $data['title']), trim((string) $data['body']), $audience, $days, $start);
-        } catch (RuntimeException $e) {
-            return $this->fail($e->getMessage(), 422);
-        }
 
-        if ($image !== null) {
-            try {
-                service('outbox')->setCampaignImage($result['id'], $images->store($image->getTempName(), $result['id']));
-            } catch (InvalidArgumentException $e) {
-                // storing failed after the rows were queued: take the campaign back so nothing goes out without its picture
-                service('outbox')->cancelCampaign($result['id']);
-
-                return $this->fail($e->getMessage(), 422);
+            if ($temp !== null) {
+                service('outbox')->setCampaignImage($result['id'], $images->commit($temp, $result['id']));
             }
+        } catch (\Throwable $e) {
+            log_message('error', 'POST /campaigns failed: {class}: {message}', ['class' => $e::class, 'message' => $e->getMessage()]);
+            $images->discard($temp);
+
+            if ($result !== null) {
+                service('outbox')->discardCampaign($result['id']);
+            }
+
+            $message = $e instanceof InvalidArgumentException || $e instanceof RuntimeException ? $e->getMessage() : lang('App.campaign_create_failed');
+
+            return $this->fail($message, 422);
         }
 
         return $this->respondCreated($this->payload($result['id']) + ['auto_send' => service('outbox')->autoSendEnabled()]);

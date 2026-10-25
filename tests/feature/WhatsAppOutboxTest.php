@@ -52,6 +52,25 @@ final class FakeWhatsAppBridge extends WhatsAppBridge
 }
 
 /**
+ * CampaignImage whose final rename can be made to fail, to prove the campaign is rolled back.
+ */
+final class FlakyCampaignImage extends \App\Libraries\CampaignImage
+{
+    public bool $failCommit = false;
+
+    public function commit(string $tempPath, int $campaignId): string
+    {
+        if ($this->failCommit) {
+            $this->discard($tempPath);
+
+            throw new \RuntimeException('disk full (simulated)');
+        }
+
+        return parent::commit($tempPath, $campaignId);
+    }
+}
+
+/**
  * Automatic WhatsApp: outbox queueing, cron delivery through the (fake) bridge, campaigns, web + API.
  *
  * @internal
@@ -69,6 +88,7 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
     protected $seed        = SettingsSeeder::class;
 
     private FakeWhatsAppBridge $bridge;
+    private FlakyCampaignImage $images;
     private string $uploadsDir;
     private array $ownerSession = ['owner_id' => 1, 'owner_name' => 'Jalpa Patel'];
 
@@ -93,7 +113,8 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
 
         // services that read Config\WhatsApp get exactly this instance (a request may otherwise resolve
         // an older cached config object from a previous test)
-        Services::injectMock('campaignImage', new \App\Libraries\CampaignImage($config));
+        $this->images = new FlakyCampaignImage($config);
+        Services::injectMock('campaignImage', $this->images);
         Services::injectMock('outbox', new \App\Libraries\Outbox(config: $config));
 
         $settings = new SettingModel();
@@ -240,6 +261,22 @@ final class WhatsAppOutboxTest extends CIUnitTestCase
         $summary = service('outbox')->process(Time::parse('2026-11-01 10:00:00'));
         $this->assertSame(1, $summary['sent']);
         $this->assertSame(['to' => '9876543211', 'text' => 'Hi Asha', 'image_url' => $json['campaign']['image_url']], $this->bridge->sent[0]);
+
+        // the picture is processed before the campaign row exists: no leftover temp files
+        $this->assertSame([], glob($this->uploadsDir . '/tmp_*') ?: []);
+
+        // a failure after the insert (final rename) rolls the campaign back: no row, no queued message, 422
+        $this->images->failCommit = true;
+        imagepng(imagecreatetruecolor(10, 10), $png);
+        $_FILES['image']['size'] = filesize($png);
+        Services::resetSingle('superglobals');
+        $rolled = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->post('campaigns', ['title' => 'Rolled back', 'body' => 'x', 'audience' => 'all']);
+        $rolled->assertStatus(422);
+        $this->assertSame('disk full (simulated)', json_decode($rolled->getJSON(), true, 512, JSON_THROW_ON_ERROR)['messages']['error']);
+        $this->assertSame(1, (new \App\Models\CampaignModel())->countAllResults(), 'the failed campaign row is gone');
+        $this->assertSame(0, (new MessageModel())->where('status', 'queued')->countAllResults(), 'nothing of it stays queued');
+        $this->assertSame([], glob($this->uploadsDir . '/tmp_*') ?: []);
+        $this->images->failCommit = false;
 
         // bad uploads are refused with a Gujarati messages.error (422) before anything is queued
         file_put_contents($png, 'not an image');

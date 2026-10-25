@@ -55,24 +55,27 @@ class CampaignImage
     }
 
     /**
-     * Resizes/re-encodes the uploaded picture for campaign $campaignId. Returns the relative path
-     * stored in campaigns.image_path (e.g. "uploads/campaigns/12.jpg").
+     * Resizes/re-encodes the uploaded picture into a temporary file inside the uploads directory
+     * (so the expensive part runs BEFORE a campaign row exists). Returns the absolute temp path;
+     * commit() renames it to <campaign id>.jpg, discard() removes it.
      *
-     * @throws InvalidArgumentException when the file cannot be processed
+     * @throws InvalidArgumentException with a Gujarati message when the file cannot be processed
      */
-    public function store(string $sourcePath, int $campaignId): string
+    public function storeTemp(string $sourcePath, ?int $declaredSize = null): string
     {
-        $this->validate($sourcePath);
+        $this->validate($sourcePath, $declaredSize);
 
         $dir = $this->dir();
 
         if (! is_dir($dir) && ! @mkdir($dir, 0755, true) && ! is_dir($dir)) {
-            throw new InvalidArgumentException(lang('App.image_invalid'));
+            log_message('error', 'campaign image: uploads directory cannot be created');
+
+            throw new InvalidArgumentException(lang('App.image_store_failed'));
         }
 
         [$width, $height] = getimagesize($sourcePath);
-        $edge   = max((int) $width, (int) $height);
-        $target = $dir . DIRECTORY_SEPARATOR . $campaignId . '.jpg';
+        $edge = max((int) $width, (int) $height);
+        $temp = $dir . DIRECTORY_SEPARATOR . 'tmp_' . uniqid('', true) . '.jpg';
 
         try {
             $image = service('image')->withFile($sourcePath);
@@ -82,16 +85,61 @@ class CampaignImage
                 $image->resize(max(1, (int) round($width * $scale)), max(1, (int) round($height * $scale)), true, 'auto');
             }
 
-            $image->convert(IMAGETYPE_JPEG)->save($target, 85);
+            $image->convert(IMAGETYPE_JPEG)->save($temp, 85);
         } catch (Throwable $e) {
-            log_message('error', 'campaign image failed: {message}', ['message' => $e->getMessage()]);
+            log_message('error', 'campaign image failed: {class}: {message}', ['class' => $e::class, 'message' => $e->getMessage()]);
+            $this->discard($temp);
 
-            throw new InvalidArgumentException(lang('App.image_invalid'));
+            throw new InvalidArgumentException(lang('App.image_store_failed'));
         }
 
-        @chmod($target, 0644);
+        if (! is_file($temp) || filesize($temp) === 0) {
+            $this->discard($temp);
+
+            throw new InvalidArgumentException(lang('App.image_store_failed'));
+        }
+
+        @chmod($temp, 0644);
+
+        return $temp;
+    }
+
+    /**
+     * Gives a temp file its final name. Returns the relative path stored in campaigns.image_path
+     * (e.g. "uploads/campaigns/12.jpg").
+     *
+     * @throws InvalidArgumentException when the rename fails
+     */
+    public function commit(string $tempPath, int $campaignId): string
+    {
+        $target = $this->dir() . DIRECTORY_SEPARATOR . $campaignId . '.jpg';
+
+        if (! @rename($tempPath, $target)) {
+            log_message('error', 'campaign image: rename to final name failed');
+            $this->discard($tempPath);
+
+            throw new InvalidArgumentException(lang('App.image_store_failed'));
+        }
 
         return trim($this->config->uploadsUrlPath, '/') . '/' . $campaignId . '.jpg';
+    }
+
+    /** Removes a temp file (silently; nothing to do when it is gone already). */
+    public function discard(?string $tempPath): void
+    {
+        if ($tempPath !== null && is_file($tempPath)) {
+            @unlink($tempPath);
+        }
+    }
+
+    /**
+     * One-step variant (storeTemp + commit) for callers that already have the campaign id.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function store(string $sourcePath, int $campaignId): string
+    {
+        return $this->commit($this->storeTemp($sourcePath), $campaignId);
     }
 
     /**

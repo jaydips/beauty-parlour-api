@@ -79,30 +79,42 @@ class Campaigns extends WebController
             $start = Time::parse("{$startDate} {$startTime}:00");
         }
 
+        // picture first (validated + resized to a temp file), then the campaign, then the final name;
+        // any failure after the insert removes the campaign again so nothing stays queued
         $image  = $this->request->getFile('image');
         $images = service('campaignImage');
+        $temp   = null;
 
         if ($image !== null && $image->getError() !== UPLOAD_ERR_NO_FILE) {
             try {
                 if ($image->getError() !== UPLOAD_ERR_OK) {
                     throw new InvalidArgumentException(lang('App.image_invalid'));
                 }
-                $images->validate($image->getTempName(), (int) $image->getSize());
+                $temp = $images->storeTemp($image->getTempName(), (int) $image->getSize());
             } catch (InvalidArgumentException $e) {
                 return redirect()->back()->withInput()->with('error', $e->getMessage());
             }
-        } else {
-            $image = null;
         }
+
+        $result = null;
 
         try {
             $result = service('outbox')->createCampaign($title, $body, $audience, $audience === 'all' ? null : $days, $start);
 
-            if ($image !== null) {
-                service('outbox')->setCampaignImage($result['id'], $images->store($image->getTempName(), $result['id']));
+            if ($temp !== null) {
+                service('outbox')->setCampaignImage($result['id'], $images->commit($temp, $result['id']));
             }
-        } catch (RuntimeException|InvalidArgumentException $e) {
-            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            log_message('error', 'web campaign create failed: {class}: {message}', ['class' => $e::class, 'message' => $e->getMessage()]);
+            $images->discard($temp);
+
+            if ($result !== null) {
+                service('outbox')->discardCampaign($result['id']);
+            }
+
+            $message = $e instanceof InvalidArgumentException || $e instanceof RuntimeException ? $e->getMessage() : lang('App.campaign_create_failed');
+
+            return redirect()->back()->withInput()->with('error', $message);
         }
 
         $note = service('outbox')->autoSendEnabled() ? '' : lang('App.campaign_auto_off_note');

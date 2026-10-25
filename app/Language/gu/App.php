@@ -485,6 +485,8 @@ return [
     'campaign_start_help'      => 'આ સમય પહેલાં કોઈ મેસેજ જતો નથી; પછી મોકલવાના સમયમાં એક પછી એક જાય છે.',
     'image_invalid'            => 'ફોટો વાંચી શકાયો નહીં: JPG, PNG કે WebP ફાઇલ પસંદ કરો.',
     'image_too_large'          => 'ફોટો ખૂબ મોટો છે (વધુમાં વધુ {0} MB).',
+    'image_store_failed'       => 'ફોટો સર્વર પર સાચવી શકાયો નહીં; ફોટા વગર મોકલો અથવા થોડી વાર પછી ફરી પ્રયત્ન કરો.',
+    'campaign_create_failed'   => 'ઑફર બનાવી શકાઈ નહીં; કંઈ મોકલાયું નથી. થોડી વાર પછી ફરી પ્રયત્ન કરો.',
     'campaign_cancelled'       => 'ઑફર રદ: {0} બાકી મેસેજ રદ થયા.',
 
     // ---- JSON API messages (keys and enum values stay English; only the human text is Gujarati)
